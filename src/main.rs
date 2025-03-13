@@ -8,6 +8,7 @@ mod error;
 mod expr;
 mod parser;
 mod scanner;
+mod snens;
 mod token;
 mod token_type;
 

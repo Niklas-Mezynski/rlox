@@ -48,12 +48,12 @@ mod tests {
     fn test_ast_printer() {
         let expr = Expr::Binary {
             left: Box::new(Expr::Unary {
-                operator: Token::new(TokenType::Minus, "-".to_string(), 1, None),
+                operator: Token::new(TokenType::Minus, "-".to_string(), 1),
                 right: Box::new(Expr::Literal {
                     value: Literal::Number(123_f64),
                 }),
             }),
-            operator: Token::new(TokenType::Star, "*".to_string(), 1, None),
+            operator: Token::new(TokenType::Star, "*".to_string(), 1),
             right: Box::new(Expr::Grouping {
                 expression: Box::new(Expr::Literal {
                     value: Literal::Number(45.67),

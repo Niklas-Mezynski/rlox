@@ -116,21 +116,15 @@ impl Parser {
                 value: Literal::Nil,
             };
         }
-        if let Some(operator) = self.match_token(TokenType::Number) {
-            if let Some(Literal::Number(num)) = operator.literal {
-                return Expr::Literal {
-                    value: Literal::Number(num),
-                };
-            }
-            panic!("Encountered token of type Number but without the correct Literal value")
+        if let Some(num) = self.match_number() {
+            return Expr::Literal {
+                value: Literal::Number(num),
+            };
         }
-        if let Some(operator) = self.match_token(TokenType::String) {
-            if let Some(Literal::String(string)) = operator.literal {
-                return Expr::Literal {
-                    value: Literal::String(string),
-                };
-            }
-            panic!("Encountered token of type String but without the correct Literal value")
+        if let Some(string) = self.match_string() {
+            return Expr::Literal {
+                value: Literal::String(string),
+            };
         }
 
         if let Some(operator) = self.match_token(TokenType::LeftParen) {
@@ -169,8 +163,36 @@ impl Parser {
         None
     }
 
+    fn match_number(&mut self) -> Option<f64> {
+        if self.pre_check() && matches!(self.peek().token_type, TokenType::Number(_)) {
+            let token = self.advance();
+            if let TokenType::Number(num) = token.token_type {
+                return Some(num);
+            }
+            unreachable!()
+        }
+
+        None
+    }
+
+    fn match_string(&mut self) -> Option<String> {
+        if self.pre_check() && matches!(self.peek().token_type, TokenType::String(_)) {
+            let token = self.advance();
+            if let TokenType::String(string) = token.token_type {
+                return Some(string);
+            }
+            unreachable!()
+        }
+
+        None
+    }
+
     fn check(&self, t: TokenType) -> bool {
-        !self.is_at_end() && self.peek().token_type == t
+        self.pre_check() && self.peek().token_type == t
+    }
+
+    fn pre_check(&self) -> bool {
+        !self.is_at_end()
     }
 
     fn advance(&mut self) -> Token {
