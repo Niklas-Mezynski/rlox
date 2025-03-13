@@ -32,8 +32,12 @@ impl Scanner {
             self.scan_token();
         }
 
-        self.tokens
-            .push(Token::new(TokenType::Eof, String::from(""), self.line));
+        self.tokens.push(Token::new(
+            TokenType::Eof,
+            String::from(""),
+            self.line,
+            None,
+        ));
 
         return self.tokens;
     }
@@ -124,7 +128,7 @@ impl Scanner {
 
         match self.keyword(&text) {
             Some(token_type) => self.add_token(token_type),
-            None => self.add_token(TokenType::Identifier(text)),
+            None => self.add_token(TokenType::Identifier),
         };
     }
 
@@ -165,9 +169,10 @@ impl Scanner {
             }
         }
 
-        self.add_token(TokenType::Number(
-            self.source[self.start..self.current].parse().unwrap(),
-        ));
+        self.add_token_with_literal(
+            TokenType::Number,
+            Literal::Number(self.source[self.start..self.current].parse().unwrap()),
+        );
     }
 
     fn string(&mut self) {
@@ -189,7 +194,7 @@ impl Scanner {
 
         // Trim the surrounding quotes.
         let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token(TokenType::String(value));
+        self.add_token_with_literal(TokenType::String, Literal::String(value));
     }
 
     fn matches(&mut self, expected: char) -> bool {
@@ -229,7 +234,14 @@ impl Scanner {
 
     fn add_token(&mut self, token_type: TokenType) {
         let text = self.source[self.start..self.current].to_string();
-        self.tokens.push(Token::new(token_type, text, self.line));
+        self.tokens
+            .push(Token::new(token_type, text, self.line, None));
+    }
+
+    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
+        let text = self.source[self.start..self.current].to_string();
+        self.tokens
+            .push(Token::new(token_type, text, self.line, Some(literal)));
     }
 }
 
