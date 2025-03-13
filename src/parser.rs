@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::{
     expr::Expr,
     token::Token,
@@ -5,13 +7,16 @@ use crate::{
 };
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: VecDeque<Token>,
     current: usize,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
-        Parser { tokens, current: 0 }
+        Parser {
+            tokens: VecDeque::from(tokens),
+            current: 0,
+        }
     }
 
     fn expression(&mut self) -> Expr {
@@ -21,8 +26,7 @@ impl Parser {
     fn equality(&mut self) -> Expr {
         let mut expr = self.comparison();
 
-        while self.match_tokens(vec![TokenType::BangEqual, TokenType::Equal]) {
-            let operator = self.previous().clone();
+        while let Some(operator) = self.match_tokens(vec![TokenType::BangEqual, TokenType::Equal]) {
             let right = self.comparison();
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -38,27 +42,28 @@ impl Parser {
         todo!()
     }
 
-    fn match_tokens(&mut self, types: Vec<TokenType>) -> bool {
+    fn match_tokens(&mut self, types: Vec<TokenType>) -> Option<Token> {
         for t in types {
             if self.check(t) {
-                self.advance();
-                return true;
+                let token = self.advance();
+                return Some(token);
             }
         }
 
-        false
+        None
     }
 
     fn check(&self, t: TokenType) -> bool {
         !self.is_at_end() && self.peek().token_type == t
     }
 
-    fn advance(&mut self) -> &Token {
+    fn advance(&mut self) -> Token {
         if !self.is_at_end() {
             self.current += 1;
+            return self.peek().clone();
         }
 
-        self.previous()
+        self.tokens.pop_front().unwrap()
     }
 
     fn is_at_end(&self) -> bool {
@@ -66,10 +71,6 @@ impl Parser {
     }
 
     fn peek(&self) -> &Token {
-        &self.tokens[self.current]
-    }
-
-    fn previous(&self) -> &Token {
-        &self.tokens[self.current - 1]
+        &self.tokens.front().unwrap()
     }
 }
