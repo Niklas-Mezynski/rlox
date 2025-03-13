@@ -1,6 +1,12 @@
 use std::env;
 
+use crate::token_type::TokenType;
+use scanner::Scanner;
+
+mod ast_printer;
 mod error;
+mod expr;
+mod parser;
 mod scanner;
 mod token;
 mod token_type;
@@ -54,7 +60,7 @@ fn run_prompt() {
 }
 
 fn run(source: String) {
-    let tokens = source.split(" ").collect::<Vec<&str>>();
+    let tokens = Scanner::new(source).scan_tokens();
 
     for token in tokens {
         println!("{:?}", token);
