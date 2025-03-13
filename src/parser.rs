@@ -39,6 +39,38 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Expr {
+        let mut expr = self.term();
+
+        while let Some(operator) = self.match_tokens(vec![
+            TokenType::Greater,
+            TokenType::GreaterEqual,
+            TokenType::Less,
+            TokenType::LessEqual,
+        ]) {
+            let right = self.term();
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            }
+        }
+
+        expr
+    }
+
+    fn term(&mut self) -> Expr {
+        todo!()
+    }
+
+    fn factor(&mut self) -> Expr {
+        todo!()
+    }
+
+    fn unary(&mut self) -> Expr {
+        todo!()
+    }
+
+    fn primary(&mut self) -> Expr {
         todo!()
     }
 
