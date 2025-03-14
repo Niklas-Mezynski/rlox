@@ -25,6 +25,7 @@ impl AstPrinter for Expr {
                 then,
                 r#else,
             } => parenthesize("if", vec![condition, then, r#else]),
+            _ => todo!(),
         }
     }
 }

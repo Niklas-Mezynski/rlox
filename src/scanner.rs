@@ -122,7 +122,7 @@ impl Scanner {
 
         match self.keyword(&text) {
             Some(token_type) => self.add_token(token_type),
-            None => self.add_token(TokenType::Identifier(text)),
+            None => self.add_token(TokenType::Identifier),
         };
     }
 

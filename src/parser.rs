@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use crate::{
     error,
     expr::Expr,
+    stmt::{self, Stmt},
     token::{Literal, Token},
     token_type::TokenType,
 };
@@ -28,8 +29,79 @@ impl Parser {
         }
     }
 
-    pub fn parse(mut self) -> Option<Expr> {
-        self.expression().ok()
+    pub fn parse(mut self) -> Option<Vec<Stmt>> {
+        let mut statements = vec![];
+        let mut has_errored = false;
+
+        while !self.is_at_end() {
+            match self.declaration() {
+                Some(stmt) => {
+                    statements.push(stmt);
+                }
+                None => {
+                    // If any statement was not parsable, we don't want to return an AST
+                    has_errored = true;
+                }
+            };
+        }
+
+        match has_errored {
+            true => None,
+            false => Some(statements),
+        }
+    }
+
+    fn declaration(&mut self) -> Option<Stmt> {
+        match self.declaration_impl() {
+            Ok(val) => Some(val),
+            Err(_) => {
+                self.synchronize();
+                None
+            }
+        }
+    }
+
+    fn declaration_impl(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(TokenType::Var).is_some() {
+            return self.var_declaration();
+        }
+        self.statement()
+    }
+
+    fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
+        let name = self.consume(TokenType::Identifier, "Expect variable name.")?;
+
+        // self.consume(TokenType::Equal, "Expect a variable assignment ('=').")?;
+        let mut initializer = None;
+        if self.match_token(TokenType::Equal).is_some() {
+            initializer = Some(self.expression()?);
+        }
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expect ';' after variable declaration.",
+        )?;
+
+        return Ok(Stmt::Var { name, initializer });
+    }
+
+    fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(TokenType::Print).is_some() {
+            return self.print_statement();
+        }
+        self.expression_statement()
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, ParseError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+        Ok(Stmt::Print { expr: value })
+    }
+
+    fn expression_statement(&mut self) -> Result<Stmt, ParseError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after expression.")?;
+        Ok(Stmt::Expression { expr })
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
@@ -162,6 +234,10 @@ impl Parser {
             return Ok(Expr::Literal {
                 value: Literal::String(string),
             });
+        }
+
+        if let Some(token) = self.match_token(TokenType::Identifier) {
+            return Ok(Expr::Variable { name: token });
         }
 
         if self.match_token(TokenType::LeftParen).is_some() {

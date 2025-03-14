@@ -1,11 +1,13 @@
 use crate::{
+    environment::Environment,
     error,
     expr::Expr,
+    stmt::Stmt,
     token::{Literal, Token},
     token_type::TokenType,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LoxValue {
     String(String),
     Number(f64),
@@ -22,10 +24,6 @@ impl RuntimeError {
     pub fn new(token: Token, message: String) -> RuntimeError {
         RuntimeError { token, message }
     }
-}
-
-pub trait Interpreter {
-    fn interpret(self);
 }
 
 impl Literal {
@@ -58,32 +56,63 @@ impl LoxValue {
     }
 }
 
-impl Interpreter for Expr {
-    fn interpret(self) {
-        let result = self.evaluate();
+pub struct Interpreter {
+    environment: Environment,
+}
 
-        match result {
-            Ok(val) => {
-                println!("{}", val.stringify())
-            }
-            Err(err) => {
+impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter {
+            environment: Environment::new(),
+        }
+    }
+
+    pub fn interpret(&mut self, statements: Vec<Stmt>) {
+        for statement in statements {
+            if let Err(err) = statement.evaluate(&mut self.environment) {
                 error::runtime_error(err);
+                return;
             }
         }
     }
 }
 
-trait Evaluatable {
-    fn evaluate(self) -> Result<LoxValue, RuntimeError>;
+trait Evaluatable<T> {
+    fn evaluate(self, environment: &mut Environment) -> Result<T, RuntimeError>;
 }
 
-impl Evaluatable for Expr {
-    fn evaluate(self) -> Result<LoxValue, RuntimeError> {
+impl Evaluatable<()> for Stmt {
+    fn evaluate(self, environment: &mut Environment) -> Result<(), RuntimeError> {
+        match self {
+            Stmt::Expression { expr } => {
+                expr.evaluate(environment)?;
+                Ok(())
+            }
+            Stmt::Print { expr } => {
+                let value = expr.evaluate(environment)?;
+                println!("{}", value.stringify());
+                Ok(())
+            }
+            Stmt::Var { name, initializer } => {
+                let mut value = LoxValue::Nil;
+
+                if let Some(expr) = initializer {
+                    value = expr.evaluate(environment)?;
+                }
+
+                Ok(environment.define(name.lexeme, value))
+            }
+        }
+    }
+}
+
+impl Evaluatable<LoxValue> for Expr {
+    fn evaluate(self, environment: &mut Environment) -> Result<LoxValue, RuntimeError> {
         match self {
             Expr::Literal { value } => Ok(value.into()),
-            Expr::Grouping { expression } => expression.evaluate(),
+            Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, right } => {
-                let right = right.evaluate()?;
+                let right = right.evaluate(environment)?;
 
                 match operator.token_type {
                     TokenType::Minus => match right {
@@ -102,8 +131,8 @@ impl Evaluatable for Expr {
                 operator,
                 right,
             } => {
-                let left = left.evaluate()?;
-                let right = right.evaluate()?;
+                let left = left.evaluate(environment)?;
+                let right = right.evaluate(environment)?;
 
                 match operator.token_type {
                     // Arithmetic operations
@@ -208,17 +237,21 @@ impl Evaluatable for Expr {
                     )),
                 }
             }
+            Self::Variable { name } => {
+                // TODO: Get rid of that .clone()
+                environment.get(&name).map(|ok| ok.clone())
+            }
             Expr::Conditional {
                 condition,
                 then,
                 r#else,
             } => {
-                let condition = condition.evaluate()?;
+                let condition = condition.evaluate(environment)?;
 
                 if condition.is_truthy() {
-                    then.evaluate()
+                    then.evaluate(environment)
                 } else {
-                    r#else.evaluate()
+                    r#else.evaluate(environment)
                 }
             }
         }

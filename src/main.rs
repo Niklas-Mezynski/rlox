@@ -5,11 +5,13 @@ use parser::Parser;
 use scanner::Scanner;
 
 mod ast_printer;
+mod environment;
 mod error;
 mod expr;
 mod interpreter;
 mod parser;
 mod scanner;
+mod stmt;
 mod token;
 mod token_type;
 fn main() {
@@ -20,17 +22,19 @@ fn main() {
         std::process::exit(1);
     }
 
+    let mut interpreter = Interpreter::new();
+
     if args.len() == 2 {
-        run_file(&args[1]);
+        run_file(&args[1], &mut interpreter);
     } else {
-        run_prompt();
+        run_prompt(&mut interpreter);
     }
 }
 
-fn run_file(path: &str) {
+fn run_file(path: &str, interpreter: &mut Interpreter) {
     let source = std::fs::read_to_string(path).expect("Failed to read file");
 
-    run(source);
+    run(source, interpreter);
 
     if error::had_error() {
         std::process::exit(65);
@@ -40,7 +44,7 @@ fn run_file(path: &str) {
     }
 }
 
-fn run_prompt() {
+fn run_prompt(interpreter: &mut Interpreter) {
     loop {
         print!("> ");
         std::io::stdout().flush().expect("Cannot flush stdout");
@@ -54,14 +58,14 @@ fn run_prompt() {
             break;
         }
 
-        run(input);
+        run(input, interpreter);
         std::io::stdout().flush().expect("Cannot flush stdout");
 
         error::set_had_error(false);
     }
 }
 
-fn run(source: String) {
+fn run(source: String, interpreter: &mut Interpreter) {
     let tokens = Scanner::new(source).scan_tokens();
     let expr = Parser::new(tokens).parse();
 
@@ -69,6 +73,6 @@ fn run(source: String) {
         return;
     }
 
-    let expr = expr.expect("Should have expression as there was no error reported");
-    Interpreter::interpret(expr);
+    let statements = expr.expect("Should have expression as there was no error reported");
+    interpreter.interpret(statements);
 }
