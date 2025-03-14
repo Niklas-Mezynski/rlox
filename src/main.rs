@@ -1,6 +1,8 @@
-use std::env;
+use std::{env, io::Write};
 
 use crate::token_type::TokenType;
+use ast_printer::AstPrinter;
+use parser::Parser;
 use scanner::Scanner;
 
 mod ast_printer;
@@ -8,7 +10,6 @@ mod error;
 mod expr;
 mod parser;
 mod scanner;
-mod snens;
 mod token;
 mod token_type;
 
@@ -42,6 +43,7 @@ fn run_file(path: &str) {
 fn run_prompt() {
     loop {
         print!("> ");
+        std::io::stdout().flush().expect("Cannot flush stdout");
 
         let mut input = String::new();
         std::io::stdin()
@@ -53,6 +55,7 @@ fn run_prompt() {
         }
 
         run(input);
+        std::io::stdout().flush().expect("Cannot flush stdout");
 
         unsafe {
             HAD_ERROR = false;
@@ -62,8 +65,12 @@ fn run_prompt() {
 
 fn run(source: String) {
     let tokens = Scanner::new(source).scan_tokens();
+    let expr = Parser::new(tokens).parse();
 
-    for token in tokens {
-        println!("{:?}", token);
+    if unsafe { HAD_ERROR } {
+        return;
     }
+
+    let expr = expr.unwrap();
+    println!("{}", expr.print());
 }
