@@ -13,19 +13,19 @@ pub fn runtime_error(error: RuntimeError) {
 }
 
 pub fn had_error() -> bool {
-    return unsafe { HAD_ERROR };
+    unsafe { HAD_ERROR }
 }
 
 pub fn set_had_error(had_error: bool) {
-    return unsafe { HAD_ERROR = had_error };
+    unsafe { HAD_ERROR = had_error };
 }
 
 pub fn had_runtime_error() -> bool {
-    return unsafe { HAD_RUNTIME_ERROR };
+    unsafe { HAD_RUNTIME_ERROR }
 }
 
 fn set_had_runtime_error(had_runtime_error: bool) {
-    return unsafe { HAD_RUNTIME_ERROR = had_runtime_error };
+    unsafe { HAD_RUNTIME_ERROR = had_runtime_error };
 }
 
 pub fn error_token(token: &Token, message: &str) {

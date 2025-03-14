@@ -1,8 +1,4 @@
-use crate::{
-    error,
-    token::{Literal, Token},
-    token_type::TokenType,
-};
+use crate::{error, token::Token, token_type::TokenType};
 
 #[derive(Debug)]
 pub struct Scanner {
@@ -35,7 +31,7 @@ impl Scanner {
         self.tokens
             .push(Token::new(TokenType::Eof, String::from(""), self.line));
 
-        return self.tokens;
+        self.tokens
     }
 
     fn is_at_end(&self) -> bool {

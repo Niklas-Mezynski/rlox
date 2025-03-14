@@ -4,7 +4,7 @@ use crate::{
     error,
     expr::Expr,
     token::{Literal, Token},
-    token_type::{self, TokenType},
+    token_type::TokenType,
 };
 
 pub struct Parser {
@@ -164,7 +164,7 @@ impl Parser {
             });
         }
 
-        if let Some(_) = self.match_token(TokenType::LeftParen) {
+        if self.match_token(TokenType::LeftParen).is_some() {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
 

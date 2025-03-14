@@ -1,6 +1,5 @@
 use std::{env, io::Write};
 
-use ast_printer::AstPrinter;
 use interpreter::Interpreter;
 use parser::Parser;
 use scanner::Scanner;
