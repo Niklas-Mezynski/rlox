@@ -100,7 +100,8 @@ impl Evaluatable<()> for Stmt {
                     value = expr.evaluate(environment)?;
                 }
 
-                Ok(environment.define(name.lexeme, value))
+                environment.define(name.lexeme, value);
+                Ok(())
             }
         }
     }

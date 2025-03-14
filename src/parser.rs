@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::{
     error,
     expr::Expr,
-    stmt::{self, Stmt},
+    stmt::Stmt,
     token::{Literal, Token},
     token_type::TokenType,
 };
@@ -82,7 +82,7 @@ impl Parser {
             "Expect ';' after variable declaration.",
         )?;
 
-        return Ok(Stmt::Var { name, initializer });
+        Ok(Stmt::Var { name, initializer })
     }
 
     fn statement(&mut self) -> Result<Stmt, ParseError> {
