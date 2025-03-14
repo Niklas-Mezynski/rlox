@@ -1,7 +1,7 @@
 use std::{env, io::Write};
 
-use crate::token_type::TokenType;
 use ast_printer::AstPrinter;
+use interpreter::Interpreter;
 use parser::Parser;
 use scanner::Scanner;
 
@@ -13,9 +13,6 @@ mod parser;
 mod scanner;
 mod token;
 mod token_type;
-
-pub static mut HAD_ERROR: bool = false;
-
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -36,8 +33,11 @@ fn run_file(path: &str) {
 
     run(source);
 
-    if unsafe { HAD_ERROR } {
+    if error::had_error() {
         std::process::exit(65);
+    }
+    if error::had_runtime_error() {
+        std::process::exit(70);
     }
 }
 
@@ -58,9 +58,7 @@ fn run_prompt() {
         run(input);
         std::io::stdout().flush().expect("Cannot flush stdout");
 
-        unsafe {
-            HAD_ERROR = false;
-        }
+        error::set_had_error(false);
     }
 }
 
@@ -68,10 +66,10 @@ fn run(source: String) {
     let tokens = Scanner::new(source).scan_tokens();
     let expr = Parser::new(tokens).parse();
 
-    if unsafe { HAD_ERROR } {
+    if error::had_error() {
         return;
     }
 
-    let expr = expr.unwrap();
-    println!("{}", expr.print());
+    let expr = expr.expect("Should have expression as there was no error reported");
+    Interpreter::interpret(expr);
 }

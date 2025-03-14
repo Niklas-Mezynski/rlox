@@ -1,4 +1,5 @@
 use crate::{
+    error,
     expr::Expr,
     token::{Literal, Token},
     token_type::TokenType,
@@ -13,8 +14,8 @@ pub enum LoxValue {
 }
 
 pub struct RuntimeError {
-    token: Token,
-    message: String,
+    pub token: Token,
+    pub message: String,
 }
 
 impl RuntimeError {
@@ -24,7 +25,7 @@ impl RuntimeError {
 }
 
 pub trait Interpreter {
-    fn evaluate(self) -> Result<LoxValue, RuntimeError>;
+    fn interpret(self);
 }
 
 impl Literal {
@@ -46,9 +47,37 @@ impl LoxValue {
             _ => true,
         }
     }
+
+    fn stringify(self) -> String {
+        match self {
+            LoxValue::Nil => String::from("nul"),
+            LoxValue::Boolean(value) => value.to_string(),
+            LoxValue::Number(value) => value.to_string(),
+            LoxValue::String(value) => value,
+        }
+    }
 }
 
 impl Interpreter for Expr {
+    fn interpret(self) {
+        let result = self.evaluate();
+
+        match result {
+            Ok(val) => {
+                println!("{}", val.stringify())
+            }
+            Err(err) => {
+                error::runtime_error(err);
+            }
+        }
+    }
+}
+
+trait Evaluatable {
+    fn evaluate(self) -> Result<LoxValue, RuntimeError>;
+}
+
+impl Evaluatable for Expr {
     fn evaluate(self) -> Result<LoxValue, RuntimeError> {
         match self {
             Expr::Literal { value } => Ok(value.into()),
@@ -165,7 +194,19 @@ impl Interpreter for Expr {
                     )),
                 }
             }
-            _ => todo!(),
+            Expr::Conditional {
+                condition,
+                then,
+                r#else,
+            } => {
+                let condition = condition.evaluate()?;
+
+                if condition.is_truthy() {
+                    then.evaluate()
+                } else {
+                    r#else.evaluate()
+                }
+            }
         }
     }
 }
