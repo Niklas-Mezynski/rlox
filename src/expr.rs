@@ -20,6 +20,10 @@ pub enum Expr {
     Variable {
         name: Token,
     },
+    Assign {
+        name: Token,
+        value: Box<Expr>,
+    },
     Conditional {
         condition: Box<Expr>,
         then: Box<Expr>,

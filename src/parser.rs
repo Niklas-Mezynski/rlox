@@ -105,7 +105,27 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.ternary()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr, ParseError> {
+        let expr = self.ternary()?;
+
+        if let Some(equals) = self.match_token(TokenType::Equal) {
+            let value = self.assignment()?;
+
+            match expr {
+                Expr::Variable { name } => {
+                    return Ok(Expr::Assign {
+                        name,
+                        value: Box::new(value),
+                    })
+                }
+                _ => return error(&equals, "Invalid assignment target."),
+            }
+        }
+
+        Ok(expr)
     }
 
     fn ternary(&mut self) -> Result<Expr, ParseError> {

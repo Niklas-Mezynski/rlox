@@ -33,4 +33,19 @@ impl Environment {
             message: format!("Undefined variable '{}'.", name.lexeme),
         })
     }
+
+    pub fn assign(&mut self, name: &Token, value: LoxValue) -> Result<(), RuntimeError> {
+        if self.values.contains_key(&name.lexeme) {
+            *self
+                .values
+                .get_mut(&name.lexeme)
+                .expect("Value must be present, key was checked") = value;
+            return Ok(());
+        }
+
+        Err(RuntimeError {
+            token: name.clone(),
+            message: format!("Undefined variable '{}'.", name.lexeme),
+        })
+    }
 }
