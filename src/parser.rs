@@ -33,7 +33,29 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        self.equality()
+        self.ternary()
+    }
+
+    fn ternary(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.equality()?;
+
+        while let Some(_operator) = self.match_token(TokenType::QuestionMark) {
+            let then = self.ternary()?;
+
+            match self.match_token(TokenType::Colon) {
+                Some(_) => {
+                    let r#else = self.ternary()?;
+                    expr = Expr::Conditional {
+                        condition: Box::new(expr),
+                        then: Box::new(then),
+                        r#else: Box::new(r#else),
+                    }
+                }
+                None => error(self.peek(), "Expected ':' for ternary operation")?,
+            }
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Expr, ParseError> {

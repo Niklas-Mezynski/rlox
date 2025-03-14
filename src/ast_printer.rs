@@ -20,6 +20,11 @@ impl AstPrinter for Expr {
                 Literal::Boolean(b) => b.to_string(),
             },
             Expr::Unary { operator, right } => parenthesize(&operator.lexeme, vec![right]),
+            Expr::Conditional {
+                condition,
+                then,
+                r#else,
+            } => parenthesize("if", vec![condition, then, r#else]),
         }
     }
 }
