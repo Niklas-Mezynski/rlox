@@ -20,11 +20,11 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&mut self, name: &Token) -> Result<&mut LoxValue, RuntimeError> {
+    pub fn get(&self, name: &Token) -> Result<&LoxValue, RuntimeError> {
         if self.values.contains_key(&name.lexeme) {
             return Ok(self
                 .values
-                .get_mut(&name.lexeme)
+                .get(&name.lexeme)
                 .expect("Value must be present, key was checked"));
         }
 
