@@ -118,6 +118,12 @@ impl Evaluatable for Expr {
                     },
                     TokenType::Slash => match (left, right) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
+                            if right_num == 0_f64 {
+                                return Err(RuntimeError::new(
+                                    operator,
+                                    "Cannot divide by 0.".to_string(),
+                                ));
+                            }
                             Ok(LoxValue::Number(left_num / right_num))
                         }
                         _ => Err(RuntimeError::new(
@@ -134,18 +140,26 @@ impl Evaluatable for Expr {
                             "Operands must be numbers.".to_string(),
                         )),
                     },
-                    TokenType::Plus => match (left, right) {
-                        (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Number(left_num + right_num))
+                    TokenType::Plus => {
+                        match (left, right) {
+                            (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
+                                Ok(LoxValue::Number(left_num + right_num))
+                            }
+
+                            // If either one of the values is a str, we cast the other one to a string
+                            (LoxValue::String(left_str), right_val) => Ok(LoxValue::String(
+                                format!("{}{}", left_str, right_val.stringify()),
+                            )),
+                            (left_val, LoxValue::String(right_str)) => Ok(LoxValue::String(
+                                format!("{}{}", left_val.stringify(), right_str),
+                            )),
+
+                            _ => Err(RuntimeError::new(
+                                operator,
+                                "Operands must be two numbers or two strings.".to_string(),
+                            )),
                         }
-                        (LoxValue::String(left_str), LoxValue::String(right_str)) => {
-                            Ok(LoxValue::String(format!("{}{}", left_str, right_str)))
-                        }
-                        _ => Err(RuntimeError::new(
-                            operator,
-                            "Operands must be two numbers or two strings.".to_string(),
-                        )),
-                    },
+                    }
 
                     // Comparison operations
                     TokenType::Greater => match (left, right) {
