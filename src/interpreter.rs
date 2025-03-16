@@ -79,7 +79,11 @@ impl Interpreter {
     }
 }
 
-impl Stmt {
+trait Evaluatable<T> {
+    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<T, RuntimeError>;
+}
+
+impl Evaluatable<()> for Stmt {
     fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
         match self {
             Stmt::Expression { expr } => {
@@ -102,11 +106,27 @@ impl Stmt {
                 environment.borrow_mut().define(name.lexeme, owned_value);
                 Ok(())
             }
+            Stmt::Block { statements } => {
+                statements.evaluate(Rc::new(RefCell::new(Environment::new_enclosing(
+                    environment,
+                ))))?;
+                Ok(())
+            }
         }
     }
 }
 
-impl Expr {
+impl Evaluatable<()> for Vec<Stmt> {
+    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
+        for statement in self {
+            statement.evaluate(environment.clone())?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Evaluatable<LoxValue> for Expr {
     fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<LoxValue, RuntimeError> {
         match self {
             Expr::Literal { value } => Ok(value.into()),
@@ -240,7 +260,7 @@ impl Expr {
                     )),
                 }
             }
-            Self::Variable { name } => environment.borrow().get(&name).cloned(),
+            Self::Variable { name } => environment.borrow().get(&name),
             Expr::Assign { name, value } => {
                 let value = value.evaluate(environment.clone())?;
                 environment.borrow_mut().assign(&name, value.clone())?;

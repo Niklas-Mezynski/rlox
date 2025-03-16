@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     interpreter::{LoxValue, RuntimeError},
@@ -6,13 +6,22 @@ use crate::{
 };
 
 pub struct Environment {
-    pub values: HashMap<String, LoxValue>,
+    values: HashMap<String, LoxValue>,
+    enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
     pub fn new() -> Environment {
         Environment {
             values: HashMap::new(),
+            enclosing: None,
+        }
+    }
+
+    pub fn new_enclosing(enclosing: Rc<RefCell<Environment>>) -> Environment {
+        Environment {
+            values: HashMap::new(),
+            enclosing: Some(enclosing),
         }
     }
 
@@ -20,12 +29,19 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &Token) -> Result<&LoxValue, RuntimeError> {
+    pub fn get(&self, name: &Token) -> Result<LoxValue, RuntimeError> {
         if self.values.contains_key(&name.lexeme) {
             return Ok(self
                 .values
                 .get(&name.lexeme)
-                .expect("Value must be present, key was checked"));
+                .expect("Value must be present, key was checked")
+                // For now we can just clone with very minimal overhead. The value will be copied when used in the interpreter anyways.
+                // In case we have to store larger objects we can consider storing Rc<...>s in the HashMap
+                .clone());
+        }
+
+        if let Some(enclosing) = self.enclosing.as_ref() {
+            return enclosing.borrow().get(name);
         }
 
         Err(RuntimeError {
@@ -41,6 +57,10 @@ impl Environment {
                 .get_mut(&name.lexeme)
                 .expect("Value must be present, key was checked") = value;
             return Ok(());
+        }
+
+        if let Some(enclosing) = self.enclosing.as_ref() {
+            return enclosing.borrow_mut().assign(name, value);
         }
 
         Err(RuntimeError {

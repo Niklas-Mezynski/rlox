@@ -89,7 +89,28 @@ impl Parser {
         if self.match_token(TokenType::Print).is_some() {
             return self.print_statement();
         }
+        if self.match_token(TokenType::LeftBrace).is_some() {
+            return Ok(Stmt::Block {
+                statements: self.block()?,
+            });
+        }
+
         self.expression_statement()
+    }
+
+    fn block(&mut self) -> Result<Vec<Stmt>, ParseError> {
+        let mut statements = vec![];
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            // TODO: Is this right? In terms of the synchronization stuff?
+            if let Some(declaration) = self.declaration() {
+                statements.push(declaration);
+            }
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after block.")?;
+
+        Ok(statements)
     }
 
     fn print_statement(&mut self) -> Result<Stmt, ParseError> {

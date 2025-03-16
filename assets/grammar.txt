@@ -1,12 +1,17 @@
 program        → statement* EOF ;
 
 statement      → exprStmt
-               | printStmt ;
+               | printStmt
+               | block ;
+
+block          → "{" declaration* "}" ;
 
 exprStmt       → expression ";" ;
 printStmt      → "print" expression ";" ;
 
-expression     → ternary ;
+expression     → assignment ;
+assignment     → IDENTIFIER "=" assignment
+               | ternary ;
 ternary        → equality "?" ternary ":" ternary ;
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
