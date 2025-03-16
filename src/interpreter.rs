@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::RefCell, rc::Rc};
 
 use crate::{
     environment::Environment,
@@ -59,19 +59,19 @@ impl LoxValue {
 }
 
 pub struct Interpreter {
-    environment: Environment,
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            environment: Environment::new(),
+            environment: Rc::new(RefCell::new(Environment::new())),
         }
     }
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
         for statement in statements {
-            if let Err(err) = statement.evaluate(&mut self.environment) {
+            if let Err(err) = statement.evaluate(self.environment.clone()) {
                 error::runtime_error(err);
                 return;
             }
@@ -80,7 +80,7 @@ impl Interpreter {
 }
 
 impl Stmt {
-    fn evaluate(self, environment: &mut Environment) -> Result<(), RuntimeError> {
+    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
         match self {
             Stmt::Expression { expr } => {
                 expr.evaluate(environment)?;
@@ -95,11 +95,11 @@ impl Stmt {
                 let mut value = Cow::Owned(LoxValue::Nil);
 
                 if let Some(expr) = initializer {
-                    value = expr.evaluate(environment)?;
+                    value = expr.evaluate(environment.clone())?;
                 }
 
                 let owned_value = value.into_owned();
-                environment.define(name.lexeme, owned_value);
+                environment.borrow_mut().define(name.lexeme, owned_value);
                 Ok(())
             }
         }
@@ -107,7 +107,10 @@ impl Stmt {
 }
 
 impl Expr {
-    fn evaluate(self, environment: &mut Environment) -> Result<Cow<LoxValue>, RuntimeError> {
+    fn evaluate(
+        self,
+        environment: Rc<RefCell<Environment>>,
+    ) -> Result<Cow<'static, LoxValue>, RuntimeError> {
         match self {
             Expr::Literal { value } => Ok(Cow::Owned(value.into())),
             Expr::Grouping { expression } => expression.evaluate(environment),
@@ -132,8 +135,8 @@ impl Expr {
                 operator,
                 right,
             } => {
-                let left = left.evaluate(environment)?;
-                let left_value = left.into_owned();
+                let left = left.evaluate(environment.clone())?;
+                let left_value = left.as_ref();
 
                 let right = right.evaluate(environment)?;
                 let right_value = right.as_ref();
@@ -197,7 +200,7 @@ impl Expr {
                     // Comparison operations
                     TokenType::Greater => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(&left_num > right_num)))
+                            Ok(Cow::Owned(LoxValue::Boolean(left_num > right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -206,7 +209,7 @@ impl Expr {
                     },
                     TokenType::GreaterEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(&left_num >= right_num)))
+                            Ok(Cow::Owned(LoxValue::Boolean(left_num >= right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -215,7 +218,7 @@ impl Expr {
                     },
                     TokenType::Less => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(&left_num < right_num)))
+                            Ok(Cow::Owned(LoxValue::Boolean(left_num < right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -224,7 +227,7 @@ impl Expr {
                     },
                     TokenType::LessEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(&left_num <= right_num)))
+                            Ok(Cow::Owned(LoxValue::Boolean(left_num <= right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -234,10 +237,10 @@ impl Expr {
 
                     // Equality operations
                     TokenType::BangEqual => {
-                        Ok(Cow::Owned(LoxValue::Boolean(&left_value != right_value)))
+                        Ok(Cow::Owned(LoxValue::Boolean(left_value != right_value)))
                     }
                     TokenType::EqualEqual => {
-                        Ok(Cow::Owned(LoxValue::Boolean(&left_value == right_value)))
+                        Ok(Cow::Owned(LoxValue::Boolean(left_value == right_value)))
                     }
                     _ => Err(RuntimeError::new(
                         operator,
@@ -245,12 +248,15 @@ impl Expr {
                     )),
                 }
             }
-            Self::Variable { name } => environment.get(&name).map(Cow::Borrowed),
+            Self::Variable { name } => environment
+                .borrow()
+                .get(&name)
+                .map(|value| Cow::Owned(value.clone())),
             Expr::Assign { name, value } => {
-                let value = value.evaluate(environment)?;
+                let value = value.evaluate(environment.clone())?;
                 let owned_value = value.into_owned();
                 let value = Cow::Owned(owned_value.clone());
-                environment.assign(&name, owned_value)?;
+                environment.borrow_mut().assign(&name, owned_value)?;
                 Ok(value)
             }
             Expr::Conditional {
@@ -258,7 +264,7 @@ impl Expr {
                 then,
                 r#else,
             } => {
-                let condition = condition.evaluate(environment)?;
+                let condition = condition.evaluate(environment.clone())?;
 
                 if condition.is_truthy() {
                     then.evaluate(environment)
