@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     environment::Environment,
@@ -48,12 +48,12 @@ impl LoxValue {
         }
     }
 
-    fn stringify(&self) -> String {
+    fn stringify(self) -> String {
         match self {
             LoxValue::Nil => String::from("nul"),
             LoxValue::Boolean(value) => value.to_string(),
             LoxValue::Number(value) => value.to_string(),
-            LoxValue::String(value) => value.clone(),
+            LoxValue::String(value) => value,
         }
     }
 }
@@ -92,13 +92,13 @@ impl Stmt {
                 Ok(())
             }
             Stmt::Var { name, initializer } => {
-                let mut value = Cow::Owned(LoxValue::Nil);
+                let mut value = (LoxValue::Nil);
 
                 if let Some(expr) = initializer {
                     value = expr.evaluate(environment.clone())?;
                 }
 
-                let owned_value = value.into_owned();
+                let owned_value = value;
                 environment.borrow_mut().define(name.lexeme, owned_value);
                 Ok(())
             }
@@ -107,26 +107,22 @@ impl Stmt {
 }
 
 impl Expr {
-    fn evaluate(
-        self,
-        environment: Rc<RefCell<Environment>>,
-    ) -> Result<Cow<'static, LoxValue>, RuntimeError> {
+    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<LoxValue, RuntimeError> {
         match self {
-            Expr::Literal { value } => Ok(Cow::Owned(value.into())),
+            Expr::Literal { value } => Ok(value.into()),
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, right } => {
                 let right = right.evaluate(environment)?;
-                let right = right.as_ref();
 
                 match operator.token_type {
                     TokenType::Minus => match right {
-                        LoxValue::Number(num) => Ok(Cow::Owned(LoxValue::Number(-num))),
+                        LoxValue::Number(num) => Ok(LoxValue::Number(-num)),
                         _ => Err(RuntimeError::new(
                             operator,
                             "Cannot negate non numeric value".to_string(),
                         )),
                     },
-                    TokenType::Bang => Ok(Cow::Owned(LoxValue::Boolean(!right.is_truthy()))),
+                    TokenType::Bang => Ok(LoxValue::Boolean(!right.is_truthy())),
                     _ => panic!("Invalid unary expression in AST"),
                 }
             }
@@ -136,16 +132,16 @@ impl Expr {
                 right,
             } => {
                 let left = left.evaluate(environment.clone())?;
-                let left_value = left.as_ref();
+                let left_value = left;
 
                 let right = right.evaluate(environment)?;
-                let right_value = right.as_ref();
+                let right_value = right;
 
                 match operator.token_type {
                     // Arithmetic operations
                     TokenType::Minus => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Number(left_num - right_num)))
+                            Ok(LoxValue::Number(left_num - right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -154,13 +150,13 @@ impl Expr {
                     },
                     TokenType::Slash => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            if *right_num == 0_f64 {
+                            if right_num == 0_f64 {
                                 return Err(RuntimeError::new(
                                     operator,
                                     "Cannot divide by 0.".to_string(),
                                 ));
                             }
-                            Ok(Cow::Owned(LoxValue::Number(left_num / right_num)))
+                            Ok(LoxValue::Number(left_num / right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -169,7 +165,7 @@ impl Expr {
                     },
                     TokenType::Star => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Number(left_num * right_num)))
+                            Ok(LoxValue::Number(left_num * right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -179,15 +175,15 @@ impl Expr {
                     TokenType::Plus => {
                         match (left_value, right_value) {
                             (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                                Ok(Cow::Owned(LoxValue::Number(left_num + right_num)))
+                                Ok(LoxValue::Number(left_num + right_num))
                             }
 
                             // If either one of the values is a str, we cast the other one to a string
-                            (LoxValue::String(left_str), right_val) => Ok(Cow::Owned(
-                                LoxValue::String(format!("{}{}", left_str, right_val.stringify())),
+                            (LoxValue::String(left_str), right_val) => Ok(LoxValue::String(
+                                format!("{}{}", left_str, right_val.stringify()),
                             )),
-                            (left_val, LoxValue::String(right_str)) => Ok(Cow::Owned(
-                                LoxValue::String(format!("{}{}", left_val.stringify(), right_str)),
+                            (left_val, LoxValue::String(right_str)) => Ok(LoxValue::String(
+                                format!("{}{}", left_val.stringify(), right_str),
                             )),
 
                             _ => Err(RuntimeError::new(
@@ -200,7 +196,7 @@ impl Expr {
                     // Comparison operations
                     TokenType::Greater => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(left_num > right_num)))
+                            Ok(LoxValue::Boolean(left_num > right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -209,7 +205,7 @@ impl Expr {
                     },
                     TokenType::GreaterEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(left_num >= right_num)))
+                            Ok(LoxValue::Boolean(left_num >= right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -218,7 +214,7 @@ impl Expr {
                     },
                     TokenType::Less => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(left_num < right_num)))
+                            Ok(LoxValue::Boolean(left_num < right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -227,7 +223,7 @@ impl Expr {
                     },
                     TokenType::LessEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(Cow::Owned(LoxValue::Boolean(left_num <= right_num)))
+                            Ok(LoxValue::Boolean(left_num <= right_num))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -236,27 +232,18 @@ impl Expr {
                     },
 
                     // Equality operations
-                    TokenType::BangEqual => {
-                        Ok(Cow::Owned(LoxValue::Boolean(left_value != right_value)))
-                    }
-                    TokenType::EqualEqual => {
-                        Ok(Cow::Owned(LoxValue::Boolean(left_value == right_value)))
-                    }
+                    TokenType::BangEqual => Ok(LoxValue::Boolean(left_value != right_value)),
+                    TokenType::EqualEqual => Ok(LoxValue::Boolean(left_value == right_value)),
                     _ => Err(RuntimeError::new(
                         operator,
                         "Invalid binary operator.".to_string(),
                     )),
                 }
             }
-            Self::Variable { name } => environment
-                .borrow()
-                .get(&name)
-                .map(|value| Cow::Owned(value.clone())),
+            Self::Variable { name } => environment.borrow().get(&name).cloned(),
             Expr::Assign { name, value } => {
                 let value = value.evaluate(environment.clone())?;
-                let owned_value = value.into_owned();
-                let value = Cow::Owned(owned_value.clone());
-                environment.borrow_mut().assign(&name, owned_value)?;
+                environment.borrow_mut().assign(&name, value.clone())?;
                 Ok(value)
             }
             Expr::Conditional {
