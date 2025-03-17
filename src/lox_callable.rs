@@ -1,32 +1,54 @@
 use std::{fmt::Debug, rc::Rc};
 
-use crate::interpreter::{LoxValue, RuntimeError};
+use crate::{
+    interpreter::{LoxValue, RuntimeError, Stringifyable},
+    token::Token,
+};
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub enum LoxCallable {
-    Function(Box<dyn LoxCallableTrait>),
+    ClockFunction,
 }
 
-pub trait LoxCallableTrait: Clone + PartialEq + Debug {
-    fn call(&self, arguments: Vec<Rc<LoxValue>>) -> Result<Rc<LoxValue>, RuntimeError>;
-
-    fn arity(&self) -> usize;
-}
-
-pub struct ClockFunction;
-
-impl Debug for ClockFunction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<native fn \"clock\">")
-    }
-}
-
-impl LoxCallableTrait for ClockFunction {
-    fn call(&self, arguments: Vec<Rc<LoxValue>>) -> Result<Rc<LoxValue>, RuntimeError> {
-        todo!()
-    }
-
+impl LoxCallable {
     fn arity(&self) -> usize {
-        todo!()
+        match self {
+            LoxCallable::ClockFunction => 0,
+        }
+    }
+
+    pub fn call(
+        &self,
+        arguments: Vec<Rc<LoxValue>>,
+        call_token: &Token,
+    ) -> Result<Rc<LoxValue>, RuntimeError> {
+        if self.arity() != arguments.len() {
+            return Err(RuntimeError::new(
+                call_token.to_owned(),
+                format!(
+                    "Expected {} arguments but got {}.",
+                    self.arity(),
+                    arguments.len()
+                ),
+            ));
+        }
+
+        match self {
+            LoxCallable::ClockFunction => {
+                let now = std::time::SystemTime::now();
+                let duration = now
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("Time went backwards");
+                Ok(Rc::new(LoxValue::Number(duration.as_secs_f64())))
+            }
+        }
+    }
+}
+
+impl Stringifyable for LoxCallable {
+    fn stringify(&self) -> String {
+        match self {
+            LoxCallable::ClockFunction => "<native fn>".to_string(),
+        }
     }
 }

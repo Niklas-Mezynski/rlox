@@ -10,7 +10,7 @@ use crate::{
     token_type::TokenType,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum LoxValue {
     String(String),
     Number(f64),
@@ -41,6 +41,10 @@ impl Literal {
     }
 }
 
+pub trait Stringifyable {
+    fn stringify(&self) -> String;
+}
+
 impl LoxValue {
     fn is_truthy(&self) -> bool {
         match self {
@@ -49,14 +53,16 @@ impl LoxValue {
             _ => true,
         }
     }
+}
 
+impl Stringifyable for LoxValue {
     fn stringify(&self) -> String {
         match self {
             LoxValue::Nil => String::from("nul"),
             LoxValue::Boolean(value) => value.to_string(),
             LoxValue::Number(value) => value.to_string(),
             LoxValue::String(value) => value.clone(),
-            LoxValue::Callable(f) => format!("{:?}", f),
+            LoxValue::Callable(value) => value.stringify(),
         }
     }
 }
@@ -67,8 +73,15 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let global_env = Rc::new(RefCell::new(Environment::new()));
+
+        global_env.borrow_mut().define(
+            "clock".to_string(),
+            Rc::new(LoxValue::Callable(LoxCallable::ClockFunction)),
+        );
+
         Interpreter {
-            environment: Rc::new(RefCell::new(Environment::new())),
+            environment: global_env,
         }
     }
 
@@ -290,10 +303,10 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     )),
                 }
             }
-            Expr::Variable { name } => environment.borrow().get(&name),
+            Expr::Variable { name } => environment.borrow().get(name),
             Expr::Assign { name, value } => {
                 let value = value.evaluate(environment.clone())?;
-                environment.borrow_mut().assign(&name, value.clone())?;
+                environment.borrow_mut().assign(name, value.clone())?;
                 Ok(value)
             }
             Expr::Conditional {
@@ -349,20 +362,17 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     evaluated_args.push(arg.evaluate(environment.clone())?);
                 }
 
-                let function: Box<dyn LoxCallable> = todo!();
+                let function = match callee.as_ref() {
+                    LoxValue::Callable(callable) => callable,
+                    _ => {
+                        return Err(RuntimeError::new(
+                            closing_paren.to_owned(),
+                            "Can only call functions and classes.".to_string(),
+                        ))
+                    }
+                };
 
-                if function.arity() != arguments.len() {
-                    return Err(RuntimeError::new(
-                        closing_paren.to_owned(),
-                        format!(
-                            "Expected {} arguments but got {}.",
-                            function.arity(),
-                            arguments.len()
-                        ),
-                    ));
-                }
-
-                function.call(evaluated_args)
+                function.call(evaluated_args, closing_paren)
             }
         }
     }

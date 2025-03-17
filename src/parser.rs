@@ -180,7 +180,7 @@ impl Parser {
         let then_branch = self.statement()?;
         let mut else_branch = None;
 
-        if let Some(_) = self.match_token(TokenType::Else) {
+        if self.match_token(TokenType::Else).is_some() {
             else_branch = Some(Box::new(self.statement()?));
         }
 
@@ -376,13 +376,8 @@ impl Parser {
     fn call(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.primary()?;
 
-        loop {
-            match self.match_token(TokenType::LeftParen) {
-                Some(_) => {
-                    expr = self.finish_call(expr)?;
-                }
-                None => break,
-            }
+        while self.match_token(TokenType::LeftParen).is_some() {
+            expr = self.finish_call(expr)?;
         }
 
         Ok(expr)
@@ -394,7 +389,7 @@ impl Parser {
         if !self.check(TokenType::RightParen) {
             loop {
                 if arguments.len() >= 255 {
-                    error::<Expr>(self.peek(), "Can't have more than 255 arguments.");
+                    let _ = error::<Expr>(self.peek(), "Can't have more than 255 arguments.");
                 }
                 arguments.push(self.expression()?);
                 if self.match_token(TokenType::Comma).is_none() {
@@ -410,10 +405,6 @@ impl Parser {
             closing_paren: paren,
             arguments,
         })
-    }
-
-    fn arguments(&mut self) -> Result<Expr, ParseError> {
-        todo!()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
