@@ -86,6 +86,9 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(TokenType::For).is_some() {
+            return self.for_statement();
+        }
         if self.match_token(TokenType::If).is_some() {
             return self.if_statement();
         }
@@ -102,6 +105,59 @@ impl Parser {
         }
 
         self.expression_statement()
+    }
+
+    fn for_statement(&mut self) -> Result<Stmt, ParseError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'.")?;
+
+        // initializer
+        let initializer = if self.match_token(TokenType::Semicolon).is_some() {
+            None
+        } else if self.match_token(TokenType::Var).is_some() {
+            Some(self.var_declaration()?)
+        } else {
+            Some(self.expression_statement()?)
+        };
+
+        // condition
+        let condition = match self.check(TokenType::Semicolon) {
+            false => self.expression()?,
+            true => Expr::Literal {
+                value: Literal::Boolean(true),
+            },
+        };
+        self.consume(TokenType::Semicolon, "Expect ';' after loop condition.")?;
+
+        // increment
+        let mut increment = None;
+        if !self.check(TokenType::RightParen) {
+            increment = Some(self.expression()?);
+        }
+        self.consume(TokenType::RightParen, "Expect ')' after for clauses.")?;
+
+        // body
+        let mut body = self.statement()?;
+
+        // desugaring for loop into known statements
+
+        if let Some(increment) = increment {
+            body = Stmt::Block {
+                statements: vec![body, Stmt::Expression { expr: increment }],
+            }
+        }
+
+        body = Stmt::While {
+            condition,
+            body: Box::new(body),
+        };
+
+        if let Some(initializer) = initializer {
+            body = Stmt::Block {
+                statements: vec![initializer, body],
+            }
+        }
+
+        Ok(body)
     }
 
     fn while_statement(&mut self) -> Result<Stmt, ParseError> {
