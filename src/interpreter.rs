@@ -29,12 +29,12 @@ impl RuntimeError {
 }
 
 impl Literal {
-    fn into(self) -> LoxValue {
+    fn into(&self) -> LoxValue {
         match self {
-            Literal::Boolean(value) => LoxValue::Boolean(value),
+            Literal::Boolean(value) => LoxValue::Boolean(*value),
             Literal::Nil => LoxValue::Nil,
-            Literal::Number(value) => LoxValue::Number(value),
-            Literal::String(value) => LoxValue::String(value),
+            Literal::Number(value) => LoxValue::Number(*value),
+            Literal::String(value) => LoxValue::String(value.to_owned()),
         }
     }
 }
@@ -80,11 +80,11 @@ impl Interpreter {
 }
 
 trait Evaluatable<T> {
-    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<T, RuntimeError>;
+    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<T, RuntimeError>;
 }
 
 impl Evaluatable<()> for Stmt {
-    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
+    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
         match self {
             Stmt::Expression { expr } => {
                 expr.evaluate(environment)?;
@@ -102,7 +102,7 @@ impl Evaluatable<()> for Stmt {
                     value = expr.evaluate(environment.clone())?;
                 }
 
-                environment.borrow_mut().define(name.lexeme, value);
+                environment.borrow_mut().define(name.lexeme.clone(), value);
                 Ok(())
             }
             Stmt::Block { statements } => {
@@ -124,12 +124,19 @@ impl Evaluatable<()> for Stmt {
 
                 Ok(())
             }
+            Stmt::While { condition, body } => {
+                while condition.evaluate(environment.clone())?.is_truthy() {
+                    body.evaluate(environment.clone())?;
+                }
+
+                Ok(())
+            }
         }
     }
 }
 
 impl Evaluatable<()> for Vec<Stmt> {
-    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
+    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
         for statement in self {
             statement.evaluate(environment.clone())?;
         }
@@ -139,7 +146,10 @@ impl Evaluatable<()> for Vec<Stmt> {
 }
 
 impl Evaluatable<Rc<LoxValue>> for Expr {
-    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<Rc<LoxValue>, RuntimeError> {
+    fn evaluate(
+        &self,
+        environment: Rc<RefCell<Environment>>,
+    ) -> Result<Rc<LoxValue>, RuntimeError> {
         match self {
             Expr::Literal { value } => Ok(Rc::new(value.into())),
             Expr::Grouping { expression } => expression.evaluate(environment),
@@ -151,7 +161,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     TokenType::Minus => match right {
                         LoxValue::Number(num) => Ok(Rc::new(LoxValue::Number(-num))),
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Cannot negate non numeric value".to_string(),
                         )),
                     },
@@ -177,7 +187,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             Ok(Rc::new(LoxValue::Number(left_num - right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -185,14 +195,14 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             if right_num == &0_f64 {
                                 return Err(RuntimeError::new(
-                                    operator,
+                                    operator.to_owned(),
                                     "Cannot divide by 0.".to_string(),
                                 ));
                             }
                             Ok(Rc::new(LoxValue::Number(left_num / right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -201,7 +211,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             Ok(Rc::new(LoxValue::Number(left_num * right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -220,7 +230,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             )),
 
                             _ => Err(RuntimeError::new(
-                                operator,
+                                operator.to_owned(),
                                 "Operands must be two numbers or two strings.".to_string(),
                             )),
                         }
@@ -232,7 +242,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             Ok(Rc::new(LoxValue::Boolean(left_num > right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -241,7 +251,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             Ok(Rc::new(LoxValue::Boolean(left_num >= right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -250,7 +260,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             Ok(Rc::new(LoxValue::Boolean(left_num < right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -259,7 +269,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                             Ok(Rc::new(LoxValue::Boolean(left_num <= right_num)))
                         }
                         _ => Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Operands must be numbers.".to_string(),
                         )),
                     },
@@ -272,7 +282,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                         Ok(Rc::new(LoxValue::Boolean(left_value == right_value)))
                     }
                     _ => Err(RuntimeError::new(
-                        operator,
+                        operator.to_owned(),
                         "Invalid binary operator.".to_string(),
                     )),
                 }
@@ -316,7 +326,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     }
                     _ => {
                         return Err(RuntimeError::new(
-                            operator,
+                            operator.to_owned(),
                             "Invalid Logical operator.".to_string(),
                         ))
                     }

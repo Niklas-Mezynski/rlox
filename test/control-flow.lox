@@ -6,3 +6,8 @@ if (a > b) {
 } else {
     print "Hello!";
 }
+
+while (a <= b) {
+    print a;
+    a = a + 1;
+}
