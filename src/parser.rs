@@ -86,6 +86,9 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(TokenType::If).is_some() {
+            return self.if_statement();
+        }
         if self.match_token(TokenType::Print).is_some() {
             return self.print_statement();
         }
@@ -96,6 +99,25 @@ impl Parser {
         }
 
         self.expression_statement()
+    }
+
+    fn if_statement(&mut self) -> Result<Stmt, ParseError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'if'.")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen, "Expect ')' after if condition.")?;
+
+        let then_branch = self.statement()?;
+        let mut else_branch = None;
+
+        if let Some(_) = self.match_token(TokenType::Else) {
+            else_branch = Some(Box::new(self.statement()?));
+        }
+
+        Ok(Stmt::If {
+            condition,
+            then_branch: Box::new(then_branch),
+            else_branch,
+        })
     }
 
     fn block(&mut self) -> Result<Vec<Stmt>, ParseError> {
@@ -150,7 +172,7 @@ impl Parser {
     }
 
     fn ternary(&mut self) -> Result<Expr, ParseError> {
-        let mut expr = self.equality()?;
+        let mut expr = self.or()?;
 
         while let Some(_operator) = self.match_token(TokenType::QuestionMark) {
             let then = self.ternary()?;
@@ -165,6 +187,36 @@ impl Parser {
                     }
                 }
                 None => error(self.peek(), "Expected ':' for ternary operation")?,
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn or(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.and()?;
+
+        while let Some(operator) = self.match_token(TokenType::Or) {
+            let right = self.and()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.equality()?;
+
+        while let Some(operator) = self.match_token(TokenType::And) {
+            let right = self.equality()?;
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
             }
         }
 

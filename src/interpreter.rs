@@ -111,6 +111,19 @@ impl Evaluatable<()> for Stmt {
                 ))))?;
                 Ok(())
             }
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                if condition.evaluate(environment.clone())?.is_truthy() {
+                    then_branch.evaluate(environment)?;
+                } else if let Some(else_statement) = else_branch {
+                    else_statement.evaluate(environment)?;
+                }
+
+                Ok(())
+            }
         }
     }
 }
@@ -264,7 +277,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     )),
                 }
             }
-            Self::Variable { name } => environment.borrow().get(&name),
+            Expr::Variable { name } => environment.borrow().get(&name),
             Expr::Assign { name, value } => {
                 let value = value.evaluate(environment.clone())?;
                 environment.borrow_mut().assign(&name, value.clone())?;
@@ -282,6 +295,34 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 } else {
                     r#else.evaluate(environment)
                 }
+            }
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => {
+                let left = left.evaluate(environment.clone())?;
+
+                match operator.token_type {
+                    TokenType::Or => {
+                        if left.is_truthy() {
+                            return Ok(left);
+                        }
+                    }
+                    TokenType::And => {
+                        if !left.is_truthy() {
+                            return Ok(left);
+                        }
+                    }
+                    _ => {
+                        return Err(RuntimeError::new(
+                            operator,
+                            "Invalid Logical operator.".to_string(),
+                        ))
+                    }
+                }
+
+                right.evaluate(environment)
             }
         }
     }
