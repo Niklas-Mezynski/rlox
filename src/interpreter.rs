@@ -1,9 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 use crate::{
     environment::Environment,
     error,
     expr::Expr,
+    lox_callable::LoxCallable,
     stmt::Stmt,
     token::{Literal, Token},
     token_type::TokenType,
@@ -15,6 +16,7 @@ pub enum LoxValue {
     Number(f64),
     Nil,
     Boolean(bool),
+    Callable(LoxCallable),
 }
 
 pub struct RuntimeError {
@@ -54,6 +56,7 @@ impl LoxValue {
             LoxValue::Boolean(value) => value.to_string(),
             LoxValue::Number(value) => value.to_string(),
             LoxValue::String(value) => value.clone(),
+            LoxValue::Callable(f) => format!("{:?}", f),
         }
     }
 }
@@ -333,6 +336,33 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 }
 
                 right.evaluate(environment)
+            }
+            Expr::Call {
+                callee,
+                closing_paren,
+                arguments,
+            } => {
+                let callee = callee.evaluate(environment.clone())?;
+
+                let mut evaluated_args = vec![];
+                for arg in arguments {
+                    evaluated_args.push(arg.evaluate(environment.clone())?);
+                }
+
+                let function: Box<dyn LoxCallable> = todo!();
+
+                if function.arity() != arguments.len() {
+                    return Err(RuntimeError::new(
+                        closing_paren.to_owned(),
+                        format!(
+                            "Expected {} arguments but got {}.",
+                            function.arity(),
+                            arguments.len()
+                        ),
+                    ));
+                }
+
+                function.call(evaluated_args)
             }
         }
     }

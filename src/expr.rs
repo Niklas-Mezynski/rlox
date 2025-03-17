@@ -34,4 +34,9 @@ pub enum Expr {
         then: Box<Expr>,
         r#else: Box<Expr>,
     },
+    Call {
+        callee: Box<Expr>,
+        closing_paren: Token,
+        arguments: Vec<Expr>,
+    },
 }
