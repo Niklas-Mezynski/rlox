@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct Environment {
-    values: HashMap<String, LoxValue>,
+    values: HashMap<String, Rc<LoxValue>>,
     enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
@@ -25,11 +25,11 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: LoxValue) {
+    pub fn define(&mut self, name: String, value: Rc<LoxValue>) {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &Token) -> Result<LoxValue, RuntimeError> {
+    pub fn get(&self, name: &Token) -> Result<Rc<LoxValue>, RuntimeError> {
         if self.values.contains_key(&name.lexeme) {
             return Ok(self
                 .values
@@ -50,7 +50,7 @@ impl Environment {
         })
     }
 
-    pub fn assign(&mut self, name: &Token, value: LoxValue) -> Result<(), RuntimeError> {
+    pub fn assign(&mut self, name: &Token, value: Rc<LoxValue>) -> Result<(), RuntimeError> {
         if self.values.contains_key(&name.lexeme) {
             *self
                 .values

@@ -48,12 +48,12 @@ impl LoxValue {
         }
     }
 
-    fn stringify(self) -> String {
+    fn stringify(&self) -> String {
         match self {
             LoxValue::Nil => String::from("nul"),
             LoxValue::Boolean(value) => value.to_string(),
             LoxValue::Number(value) => value.to_string(),
-            LoxValue::String(value) => value,
+            LoxValue::String(value) => value.clone(),
         }
     }
 }
@@ -96,14 +96,13 @@ impl Evaluatable<()> for Stmt {
                 Ok(())
             }
             Stmt::Var { name, initializer } => {
-                let mut value = (LoxValue::Nil);
+                let mut value = Rc::new(LoxValue::Nil);
 
                 if let Some(expr) = initializer {
                     value = expr.evaluate(environment.clone())?;
                 }
 
-                let owned_value = value;
-                environment.borrow_mut().define(name.lexeme, owned_value);
+                environment.borrow_mut().define(name.lexeme, value);
                 Ok(())
             }
             Stmt::Block { statements } => {
@@ -126,23 +125,24 @@ impl Evaluatable<()> for Vec<Stmt> {
     }
 }
 
-impl Evaluatable<LoxValue> for Expr {
-    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<LoxValue, RuntimeError> {
+impl Evaluatable<Rc<LoxValue>> for Expr {
+    fn evaluate(self, environment: Rc<RefCell<Environment>>) -> Result<Rc<LoxValue>, RuntimeError> {
         match self {
-            Expr::Literal { value } => Ok(value.into()),
+            Expr::Literal { value } => Ok(Rc::new(value.into())),
             Expr::Grouping { expression } => expression.evaluate(environment),
             Expr::Unary { operator, right } => {
                 let right = right.evaluate(environment)?;
+                let right = right.as_ref();
 
                 match operator.token_type {
                     TokenType::Minus => match right {
-                        LoxValue::Number(num) => Ok(LoxValue::Number(-num)),
+                        LoxValue::Number(num) => Ok(Rc::new(LoxValue::Number(-num))),
                         _ => Err(RuntimeError::new(
                             operator,
                             "Cannot negate non numeric value".to_string(),
                         )),
                     },
-                    TokenType::Bang => Ok(LoxValue::Boolean(!right.is_truthy())),
+                    TokenType::Bang => Ok(Rc::new(LoxValue::Boolean(!right.is_truthy()))),
                     _ => panic!("Invalid unary expression in AST"),
                 }
             }
@@ -152,16 +152,16 @@ impl Evaluatable<LoxValue> for Expr {
                 right,
             } => {
                 let left = left.evaluate(environment.clone())?;
-                let left_value = left;
+                let left_value = left.as_ref();
 
                 let right = right.evaluate(environment)?;
-                let right_value = right;
+                let right_value = right.as_ref();
 
                 match operator.token_type {
                     // Arithmetic operations
                     TokenType::Minus => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Number(left_num - right_num))
+                            Ok(Rc::new(LoxValue::Number(left_num - right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -170,13 +170,13 @@ impl Evaluatable<LoxValue> for Expr {
                     },
                     TokenType::Slash => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            if right_num == 0_f64 {
+                            if right_num == &0_f64 {
                                 return Err(RuntimeError::new(
                                     operator,
                                     "Cannot divide by 0.".to_string(),
                                 ));
                             }
-                            Ok(LoxValue::Number(left_num / right_num))
+                            Ok(Rc::new(LoxValue::Number(left_num / right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -185,7 +185,7 @@ impl Evaluatable<LoxValue> for Expr {
                     },
                     TokenType::Star => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Number(left_num * right_num))
+                            Ok(Rc::new(LoxValue::Number(left_num * right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -195,15 +195,15 @@ impl Evaluatable<LoxValue> for Expr {
                     TokenType::Plus => {
                         match (left_value, right_value) {
                             (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                                Ok(LoxValue::Number(left_num + right_num))
+                                Ok(Rc::new(LoxValue::Number(left_num + right_num)))
                             }
 
                             // If either one of the values is a str, we cast the other one to a string
-                            (LoxValue::String(left_str), right_val) => Ok(LoxValue::String(
-                                format!("{}{}", left_str, right_val.stringify()),
+                            (LoxValue::String(left_str), right_val) => Ok(Rc::new(
+                                LoxValue::String(format!("{}{}", left_str, right_val.stringify())),
                             )),
-                            (left_val, LoxValue::String(right_str)) => Ok(LoxValue::String(
-                                format!("{}{}", left_val.stringify(), right_str),
+                            (left_val, LoxValue::String(right_str)) => Ok(Rc::new(
+                                LoxValue::String(format!("{}{}", left_val.stringify(), right_str)),
                             )),
 
                             _ => Err(RuntimeError::new(
@@ -216,7 +216,7 @@ impl Evaluatable<LoxValue> for Expr {
                     // Comparison operations
                     TokenType::Greater => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Boolean(left_num > right_num))
+                            Ok(Rc::new(LoxValue::Boolean(left_num > right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -225,7 +225,7 @@ impl Evaluatable<LoxValue> for Expr {
                     },
                     TokenType::GreaterEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Boolean(left_num >= right_num))
+                            Ok(Rc::new(LoxValue::Boolean(left_num >= right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -234,7 +234,7 @@ impl Evaluatable<LoxValue> for Expr {
                     },
                     TokenType::Less => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Boolean(left_num < right_num))
+                            Ok(Rc::new(LoxValue::Boolean(left_num < right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -243,7 +243,7 @@ impl Evaluatable<LoxValue> for Expr {
                     },
                     TokenType::LessEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
-                            Ok(LoxValue::Boolean(left_num <= right_num))
+                            Ok(Rc::new(LoxValue::Boolean(left_num <= right_num)))
                         }
                         _ => Err(RuntimeError::new(
                             operator,
@@ -252,8 +252,12 @@ impl Evaluatable<LoxValue> for Expr {
                     },
 
                     // Equality operations
-                    TokenType::BangEqual => Ok(LoxValue::Boolean(left_value != right_value)),
-                    TokenType::EqualEqual => Ok(LoxValue::Boolean(left_value == right_value)),
+                    TokenType::BangEqual => {
+                        Ok(Rc::new(LoxValue::Boolean(left_value != right_value)))
+                    }
+                    TokenType::EqualEqual => {
+                        Ok(Rc::new(LoxValue::Boolean(left_value == right_value)))
+                    }
                     _ => Err(RuntimeError::new(
                         operator,
                         "Invalid binary operator.".to_string(),

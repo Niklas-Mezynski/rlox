@@ -102,7 +102,7 @@ impl Parser {
         let mut statements = vec![];
 
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
-            // TODO: Is this right? In terms of the synchronization stuff?
+            // If something goes wrong, we don't care about returning a valid AST
             if let Some(declaration) = self.declaration() {
                 statements.push(declaration);
             }
