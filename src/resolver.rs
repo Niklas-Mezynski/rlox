@@ -226,6 +226,17 @@ impl Resolvable<()> for &mut Expr {
                 then.resolve(resolver);
                 r#else.resolve(resolver);
             }
+            Expr::Get { object, name: _ } => {
+                object.resolve(resolver);
+            }
+            Expr::Set {
+                object,
+                name: _,
+                value,
+            } => {
+                value.resolve(resolver);
+                object.resolve(resolver);
+            }
         }
     }
 }

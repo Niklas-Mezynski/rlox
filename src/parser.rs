@@ -311,6 +311,13 @@ impl Parser {
                         depth: None,
                     })
                 }
+                Expr::Get { object, name } => {
+                    return Ok(Expr::Set {
+                        object,
+                        name,
+                        value: Box::new(value),
+                    })
+                }
                 _ => return error(&equals, "Invalid assignment target."),
             }
         }
@@ -452,8 +459,19 @@ impl Parser {
     fn call(&mut self) -> Result<Expr, ParseError> {
         let mut expr = self.primary()?;
 
-        while self.match_token(TokenType::LeftParen).is_some() {
-            expr = self.finish_call(expr)?;
+        loop {
+            if self.match_token(TokenType::LeftParen).is_some() {
+                expr = self.finish_call(expr)?;
+            } else if self.match_token(TokenType::Dot).is_some() {
+                let name =
+                    self.consume(TokenType::Identifier, "Expect property name after '.'.")?;
+                expr = Expr::Get {
+                    object: Box::new(expr),
+                    name,
+                }
+            } else {
+                break;
+            }
         }
 
         Ok(expr)

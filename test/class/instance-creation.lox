@@ -1,0 +1,10 @@
+class Bagel {}
+var bagel = Bagel();
+print bagel; // Prints "Bagel instance".
+
+bagel.price = 6.9;
+bagel.variant = "Fischhhhh";
+
+print bagel.price;
+print bagel.variant;
+print bagel.argus; // Error

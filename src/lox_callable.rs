@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::VecDeque, fmt::Debug, rc::Rc};
 use crate::{
     environment::Environment,
     interpreter::{Evaluatable, LoxValue, RuntimeError, RuntimeEvent, Stringifyable},
+    lox_instance::LoxInstance,
     stmt::Stmt,
     token::Token,
 };
@@ -15,6 +16,11 @@ pub struct FunctionStmt {
 }
 
 #[derive(Debug)]
+pub struct LoxClass {
+    pub name: String,
+}
+
+#[derive(Debug)]
 pub enum LoxCallable {
     ClockFunction,
     Function {
@@ -22,7 +28,7 @@ pub enum LoxCallable {
         closure: Rc<RefCell<Environment>>,
     },
     Class {
-        name: String,
+        class: Rc<LoxClass>,
     },
 }
 
@@ -44,7 +50,7 @@ impl LoxCallable {
                 declaration,
                 closure: _,
             } => declaration.params.len(),
-            LoxCallable::Class { name: _ } => todo!(),
+            LoxCallable::Class { class: _ } => 0,
         }
     }
 
@@ -100,7 +106,10 @@ impl LoxCallable {
                     },
                 }
             }
-            LoxCallable::Class { name: _ } => todo!(),
+            LoxCallable::Class { class } => {
+                let instance = LoxInstance::new(class.clone());
+                Ok(Rc::new(LoxValue::Instance(RefCell::new(instance))))
+            }
         }
     }
 }
@@ -113,7 +122,7 @@ impl Stringifyable for LoxCallable {
                 declaration,
                 closure: _,
             } => format!("<fn {}>", declaration.name.lexeme),
-            LoxCallable::Class { name } => name.to_string(),
+            LoxCallable::Class { class } => class.name.to_string(),
         }
     }
 }

@@ -4,7 +4,8 @@ use crate::{
     environment::Environment,
     error,
     expr::Expr,
-    lox_callable::{FunctionStmt, LoxCallable},
+    lox_callable::{FunctionStmt, LoxCallable, LoxClass},
+    lox_instance::{self, LoxInstance},
     stmt::Stmt,
     token::{Literal, Token},
     token_type::TokenType,
@@ -17,6 +18,7 @@ pub enum LoxValue {
     Nil,
     Boolean(bool),
     Callable(LoxCallable),
+    Instance(RefCell<LoxInstance>),
 }
 
 pub struct RuntimeError {
@@ -90,6 +92,7 @@ impl Stringifyable for LoxValue {
             LoxValue::Number(value) => value.to_string(),
             LoxValue::String(value) => value.clone(),
             LoxValue::Callable(value) => value.stringify(),
+            LoxValue::Instance(value) => value.borrow().stringify(),
         }
     }
 }
@@ -207,7 +210,9 @@ impl Evaluatable<()> for Stmt {
                 let mut env_mut = environment.borrow_mut();
                 env_mut.define(name.lexeme.to_string(), Rc::new(LoxValue::Nil));
                 let class = LoxValue::Callable(LoxCallable::Class {
-                    name: name.lexeme.to_string(),
+                    class: Rc::new(LoxClass {
+                        name: name.lexeme.to_string(),
+                    }),
                 });
                 env_mut.assign(name, Rc::new(class))?;
 
@@ -437,6 +442,36 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 };
 
                 function.call(evaluated_args, closing_paren)
+            }
+            Expr::Get { object, name } => {
+                let object = object.evaluate(environment)?;
+
+                match object.as_ref() {
+                    LoxValue::Instance(lox_instance) => lox_instance.borrow().get(name),
+                    _ => Err(RuntimeEvent::Error(RuntimeError::new(
+                        name.to_owned(),
+                        "Only instances have properties.".to_string(),
+                    ))),
+                }
+            }
+            Expr::Set {
+                object,
+                name,
+                value,
+            } => {
+                let object = object.evaluate(environment.clone())?;
+
+                match object.as_ref() {
+                    LoxValue::Instance(lox_instance) => {
+                        let value = value.evaluate(environment)?;
+                        lox_instance.borrow_mut().set(name, value.clone())?;
+                        Ok(value)
+                    }
+                    _ => Err(RuntimeEvent::Error(RuntimeError::new(
+                        name.to_owned(),
+                        "Only instances have properties.".to_string(),
+                    ))),
+                }
             }
         }
     }
