@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Debug, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, fmt::Debug, rc::Rc};
 
 use crate::{
     environment::Environment,
@@ -411,9 +411,9 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
             } => {
                 let callee = callee.evaluate(environment.clone())?;
 
-                let mut evaluated_args = vec![];
+                let mut evaluated_args = VecDeque::new();
                 for arg in arguments {
-                    evaluated_args.push(arg.evaluate(environment.clone())?);
+                    evaluated_args.push_back(arg.evaluate(environment.clone())?);
                 }
 
                 let function = match callee.as_ref() {

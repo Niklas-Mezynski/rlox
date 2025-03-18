@@ -46,7 +46,7 @@ impl LoxCallable {
 
     pub fn call(
         &self,
-        arguments: Vec<Rc<LoxValue>>,
+        mut arguments: VecDeque<Rc<LoxValue>>,
         call_token: &Token,
     ) -> Result<Rc<LoxValue>, RuntimeEvent> {
         if self.arity() != arguments.len() {
@@ -73,7 +73,6 @@ impl LoxCallable {
                 closure,
             } => {
                 let mut function_env = Environment::new_enclosing(closure.clone());
-                let mut arguments = VecDeque::from(arguments);
 
                 for param in declaration.params.iter() {
                     function_env.define(
