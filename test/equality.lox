@@ -1,0 +1,25 @@
+fun sayHi(first, last) {
+  print "Hi, " + first + " " + last + "!";
+}
+
+fun count(n) {
+  if (n > 1) count(n - 1);
+  print n;
+}
+
+var a = true;
+var b = true;
+
+print 3 == 3;
+print "hi" == "hi";
+print count == count;
+print nil == nil;
+print a == b;
+
+print "------";
+
+b = false;
+print a == b;
+print "hi" == "hello";
+print count != count;
+print count == sayHi;

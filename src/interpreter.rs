@@ -55,15 +55,25 @@ impl LoxValue {
     }
 }
 
-impl PartialEq for LoxValue {
+trait MyPartialEq {
+    fn eq(&self, other: &Self) -> bool;
+    fn ne(&self, other: &Self) -> bool;
+}
+
+impl MyPartialEq for Rc<LoxValue> {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::String(l0), Self::String(r0)) => l0 == r0,
-            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
-            (Self::Boolean(l0), Self::Boolean(r0)) => l0 == r0,
-            // TODO: How should this behave for functions etc.
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        match (self.as_ref(), other.as_ref()) {
+            (LoxValue::String(l0), LoxValue::String(r0)) => l0 == r0,
+            (LoxValue::Number(l0), LoxValue::Number(r0)) => l0 == r0,
+            (LoxValue::Boolean(l0), LoxValue::Boolean(r0)) => l0 == r0,
+            (LoxValue::Nil, LoxValue::Nil) => true,
+            // For other values, compare by reference
+            _ => Rc::ptr_eq(self, other),
         }
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
     }
 }
 
@@ -316,12 +326,8 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     },
 
                     // Equality operations
-                    TokenType::BangEqual => {
-                        Ok(Rc::new(LoxValue::Boolean(left_value != right_value)))
-                    }
-                    TokenType::EqualEqual => {
-                        Ok(Rc::new(LoxValue::Boolean(left_value == right_value)))
-                    }
+                    TokenType::BangEqual => Ok(Rc::new(LoxValue::Boolean(left.ne(&right)))),
+                    TokenType::EqualEqual => Ok(Rc::new(LoxValue::Boolean(left.eq(&right)))),
                     _ => Err(RuntimeError::new(
                         operator.to_owned(),
                         "Invalid binary operator.".to_string(),
