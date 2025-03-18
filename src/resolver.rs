@@ -209,7 +209,7 @@ impl Resolvable<()> for &mut Expr {
                 left.resolve(resolver);
                 right.resolve(resolver);
             }
-            Expr::Unary { operator, right } => {
+            Expr::Unary { operator: _, right } => {
                 right.resolve(resolver);
             }
             Expr::Conditional {

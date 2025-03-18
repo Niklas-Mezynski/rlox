@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, env, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     interpreter::{LoxValue, RuntimeError, RuntimeEvent},
@@ -28,25 +28,6 @@ impl Environment {
 
     pub fn define(&mut self, name: String, value: Rc<LoxValue>) {
         self.values.insert(name, value);
-    }
-
-    pub fn get(&self, name: &Token) -> Result<Rc<LoxValue>, RuntimeEvent> {
-        if self.values.contains_key(&name.lexeme) {
-            return Ok(self
-                .values
-                .get(&name.lexeme)
-                .expect("Value must be present, key was checked")
-                .clone());
-        }
-
-        if let Some(enclosing) = self.enclosing.as_ref() {
-            return enclosing.borrow().get(name);
-        }
-
-        Err(RuntimeEvent::Error(RuntimeError {
-            token: name.clone(),
-            message: format!("Undefined variable '{}'.", name.lexeme),
-        }))
     }
 
     pub fn get_at(
@@ -133,25 +114,6 @@ impl Environment {
                 .get_mut(&name.lexeme)
                 .expect("Value must be present, key was checked") = value;
             return Ok(());
-        }
-
-        Err(RuntimeEvent::Error(RuntimeError {
-            token: name.clone(),
-            message: format!("Undefined variable '{}'.", name.lexeme),
-        }))
-    }
-
-    pub fn assign(&mut self, name: &Token, value: Rc<LoxValue>) -> Result<(), RuntimeEvent> {
-        if self.values.contains_key(&name.lexeme) {
-            *self
-                .values
-                .get_mut(&name.lexeme)
-                .expect("Value must be present, key was checked") = value;
-            return Ok(());
-        }
-
-        if let Some(enclosing) = self.enclosing.as_ref() {
-            return enclosing.borrow_mut().assign(name, value);
         }
 
         Err(RuntimeEvent::Error(RuntimeError {

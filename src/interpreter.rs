@@ -195,7 +195,7 @@ impl Evaluatable<()> for Stmt {
 
                 Ok(())
             }
-            Self::Return { keyword, value } => {
+            Self::Return { keyword: _, value } => {
                 let value = match value {
                     Some(v) => v.evaluate(environment)?,
                     None => Rc::new(LoxValue::Nil),
