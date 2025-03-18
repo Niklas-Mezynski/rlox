@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{expr::Expr, token::Token};
 
 #[derive(Debug)]
@@ -9,9 +11,9 @@ pub enum Stmt {
         expr: Expr,
     },
     Function {
-        name: Token,
-        params: Vec<Token>,
-        body: Vec<Stmt>,
+        name: Rc<Token>,
+        params: Rc<Vec<Token>>,
+        body: Rc<Vec<Stmt>>,
     },
     If {
         condition: Expr,

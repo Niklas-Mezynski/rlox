@@ -160,9 +160,17 @@ impl Evaluatable<()> for Stmt {
                 Ok(())
             }
             Stmt::Function { name, params, body } => {
-                // let function = LoxValue::Callable(LoxCallable::Function(FunctionStmt { name, params, body }))
+                let function = LoxValue::Callable(LoxCallable::Function(FunctionStmt {
+                    name: name.clone(),
+                    params: params.clone(),
+                    body: body.clone(),
+                }));
 
-                todo!()
+                environment
+                    .borrow_mut()
+                    .define(name.lexeme.to_owned(), Rc::new(function));
+
+                Ok(())
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, rc::Rc};
 
 use crate::{
     error,
@@ -106,9 +106,9 @@ impl Parser {
         let body = self.block()?;
 
         Ok(Stmt::Function {
-            name,
-            params: parameters,
-            body,
+            name: Rc::new(name),
+            params: Rc::new(parameters),
+            body: Rc::new(body),
         })
     }
 

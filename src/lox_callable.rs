@@ -9,9 +9,9 @@ use crate::{
 
 #[derive(Debug)]
 pub struct FunctionStmt {
-    pub name: Token,
-    pub params: Vec<Token>,
-    pub body: Vec<Stmt>,
+    pub name: Rc<Token>,
+    pub params: Rc<Vec<Token>>,
+    pub body: Rc<Vec<Stmt>>,
 }
 
 #[derive(Debug)]
