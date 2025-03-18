@@ -21,6 +21,9 @@ pub enum LoxCallable {
         declaration: FunctionStmt,
         closure: Rc<RefCell<Environment>>,
     },
+    Class {
+        name: String,
+    },
 }
 
 impl LoxCallable {
@@ -41,6 +44,7 @@ impl LoxCallable {
                 declaration,
                 closure: _,
             } => declaration.params.len(),
+            LoxCallable::Class { name: _ } => todo!(),
         }
     }
 
@@ -96,6 +100,7 @@ impl LoxCallable {
                     },
                 }
             }
+            LoxCallable::Class { name: _ } => todo!(),
         }
     }
 }
@@ -108,6 +113,7 @@ impl Stringifyable for LoxCallable {
                 declaration,
                 closure: _,
             } => format!("<fn {}>", declaration.name.lexeme),
+            LoxCallable::Class { name } => name.to_string(),
         }
     }
 }

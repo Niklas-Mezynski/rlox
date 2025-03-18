@@ -7,6 +7,10 @@ pub enum Stmt {
     Block {
         statements: Vec<Stmt>,
     },
+    Class {
+        name: Token,
+        methods: Vec<Stmt>, // Where statements must be functions
+    },
     Expression {
         expr: Expr,
     },

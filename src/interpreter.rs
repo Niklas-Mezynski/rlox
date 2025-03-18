@@ -195,13 +195,23 @@ impl Evaluatable<()> for Stmt {
 
                 Ok(())
             }
-            Self::Return { keyword: _, value } => {
+            Stmt::Return { keyword: _, value } => {
                 let value = match value {
                     Some(v) => v.evaluate(environment)?,
                     None => Rc::new(LoxValue::Nil),
                 };
 
                 Err(RuntimeEvent::Return(value))
+            }
+            Stmt::Class { name, methods } => {
+                let mut env_mut = environment.borrow_mut();
+                env_mut.define(name.lexeme.to_string(), Rc::new(LoxValue::Nil));
+                let class = LoxValue::Callable(LoxCallable::Class {
+                    name: name.lexeme.to_string(),
+                });
+                env_mut.assign(name, Rc::new(class))?;
+
+                Ok(())
             }
         }
     }

@@ -62,6 +62,9 @@ impl Parser {
     }
 
     fn declaration_impl(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(TokenType::Class).is_some() {
+            return self.class_declaration();
+        }
         if self.match_token(TokenType::Fun).is_some() {
             return self.function("function");
         }
@@ -69,6 +72,20 @@ impl Parser {
             return self.var_declaration();
         }
         self.statement()
+    }
+
+    fn class_declaration(&mut self) -> Result<Stmt, ParseError> {
+        let name = self.consume(TokenType::Identifier, "Expect class name.")?;
+        self.consume(TokenType::LeftBrace, "Expect '{' before class body.")?;
+
+        let mut methods = vec![];
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            methods.push(self.function("method")?);
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after class body.")?;
+
+        Ok(Stmt::Class { name, methods })
     }
 
     fn function(&mut self, kind: &str) -> Result<Stmt, ParseError> {

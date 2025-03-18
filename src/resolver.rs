@@ -153,6 +153,11 @@ impl Resolvable<()> for &mut Stmt {
                 condition.resolve(resolver);
                 body.resolve(resolver);
             }
+            Stmt::Class { name, methods } => {
+                resolver.declare(name);
+                resolver.define(name);
+                // TODO: resolve methods
+            }
         }
     }
 }
