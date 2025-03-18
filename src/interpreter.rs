@@ -30,6 +30,11 @@ impl RuntimeError {
     }
 }
 
+pub enum RuntimeEvent {
+    Error(RuntimeError),
+    Return(Rc<LoxValue>),
+}
+
 impl Literal {
     fn into(&self) -> LoxValue {
         match self {
@@ -110,19 +115,24 @@ impl Interpreter {
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
         for statement in statements {
             if let Err(err) = statement.evaluate(self.environment.clone()) {
-                error::runtime_error(err);
-                return;
+                match err {
+                    RuntimeEvent::Error(err) => {
+                        error::runtime_error(err);
+                        return;
+                    }
+                    _ => panic!("Unhandled return statement"),
+                }
             }
         }
     }
 }
 
 pub trait Evaluatable<T> {
-    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<T, RuntimeError>;
+    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<T, RuntimeEvent>;
 }
 
 impl Evaluatable<()> for Stmt {
-    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
+    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeEvent> {
         match self {
             Stmt::Expression { expr } => {
                 expr.evaluate(environment)?;
@@ -182,12 +192,20 @@ impl Evaluatable<()> for Stmt {
 
                 Ok(())
             }
+            Self::Return { keyword, value } => {
+                let value = match value {
+                    Some(v) => v.evaluate(environment)?,
+                    None => Rc::new(LoxValue::Nil),
+                };
+
+                Err(RuntimeEvent::Return(value))
+            }
         }
     }
 }
 
 impl Evaluatable<()> for Vec<Stmt> {
-    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeError> {
+    fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<(), RuntimeEvent> {
         for statement in self {
             statement.evaluate(environment.clone())?;
         }
@@ -200,7 +218,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
     fn evaluate(
         &self,
         environment: Rc<RefCell<Environment>>,
-    ) -> Result<Rc<LoxValue>, RuntimeError> {
+    ) -> Result<Rc<LoxValue>, RuntimeEvent> {
         match self {
             Expr::Literal { value } => Ok(Rc::new(value.into())),
             Expr::Grouping { expression } => expression.evaluate(environment),
@@ -211,10 +229,10 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 match operator.token_type {
                     TokenType::Minus => match right {
                         LoxValue::Number(num) => Ok(Rc::new(LoxValue::Number(-num))),
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Cannot negate non numeric value".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::Bang => Ok(Rc::new(LoxValue::Boolean(!right.is_truthy()))),
                     _ => panic!("Invalid unary expression in AST"),
@@ -237,34 +255,34 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             Ok(Rc::new(LoxValue::Number(left_num - right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::Slash => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             if right_num == &0_f64 {
-                                return Err(RuntimeError::new(
+                                return Err(RuntimeEvent::Error(RuntimeError::new(
                                     operator.to_owned(),
                                     "Cannot divide by 0.".to_string(),
-                                ));
+                                )));
                             }
                             Ok(Rc::new(LoxValue::Number(left_num / right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::Star => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             Ok(Rc::new(LoxValue::Number(left_num * right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::Plus => {
                         match (left_value, right_value) {
@@ -280,10 +298,10 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                                 LoxValue::String(format!("{}{}", left_val.stringify(), right_str)),
                             )),
 
-                            _ => Err(RuntimeError::new(
+                            _ => Err(RuntimeEvent::Error(RuntimeError::new(
                                 operator.to_owned(),
                                 "Operands must be two numbers or two strings.".to_string(),
-                            )),
+                            ))),
                         }
                     }
 
@@ -292,46 +310,46 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             Ok(Rc::new(LoxValue::Boolean(left_num > right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::GreaterEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             Ok(Rc::new(LoxValue::Boolean(left_num >= right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::Less => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             Ok(Rc::new(LoxValue::Boolean(left_num < right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
                     TokenType::LessEqual => match (left_value, right_value) {
                         (LoxValue::Number(left_num), LoxValue::Number(right_num)) => {
                             Ok(Rc::new(LoxValue::Boolean(left_num <= right_num)))
                         }
-                        _ => Err(RuntimeError::new(
+                        _ => Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Operands must be numbers.".to_string(),
-                        )),
+                        ))),
                     },
 
                     // Equality operations
                     TokenType::BangEqual => Ok(Rc::new(LoxValue::Boolean(left.ne(&right)))),
                     TokenType::EqualEqual => Ok(Rc::new(LoxValue::Boolean(left.eq(&right)))),
-                    _ => Err(RuntimeError::new(
+                    _ => Err(RuntimeEvent::Error(RuntimeError::new(
                         operator.to_owned(),
                         "Invalid binary operator.".to_string(),
-                    )),
+                    ))),
                 }
             }
             Expr::Variable { name } => environment.borrow().get(name),
@@ -372,10 +390,10 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                         }
                     }
                     _ => {
-                        return Err(RuntimeError::new(
+                        return Err(RuntimeEvent::Error(RuntimeError::new(
                             operator.to_owned(),
                             "Invalid Logical operator.".to_string(),
-                        ))
+                        )))
                     }
                 }
 
@@ -396,10 +414,10 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 let function = match callee.as_ref() {
                     LoxValue::Callable(callable) => callable,
                     _ => {
-                        return Err(RuntimeError::new(
+                        return Err(RuntimeEvent::Error(RuntimeError::new(
                             closing_paren.to_owned(),
                             "Can only call functions and classes.".to_string(),
-                        ))
+                        )))
                     }
                 };
 

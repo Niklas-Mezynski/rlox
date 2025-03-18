@@ -139,6 +139,9 @@ impl Parser {
         if self.match_token(TokenType::Print).is_some() {
             return self.print_statement();
         }
+        if let Some(keyword) = self.match_token(TokenType::Return) {
+            return self.return_statement(keyword);
+        }
         if self.match_token(TokenType::While).is_some() {
             return self.while_statement();
         }
@@ -202,6 +205,17 @@ impl Parser {
         }
 
         Ok(body)
+    }
+
+    fn return_statement(&mut self, keyword: Token) -> Result<Stmt, ParseError> {
+        let value = match self.check(TokenType::Semicolon) {
+            true => None,
+            false => Some(self.expression()?),
+        };
+
+        self.consume(TokenType::Semicolon, "Expect ';' after return value.");
+
+        Ok(Stmt::Return { keyword, value })
     }
 
     fn while_statement(&mut self) -> Result<Stmt, ParseError> {

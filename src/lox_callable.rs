@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::VecDeque, fmt::Debug, rc::Rc};
 
 use crate::{
     environment::Environment,
-    interpreter::{Evaluatable, LoxValue, RuntimeError, Stringifyable},
+    interpreter::{Evaluatable, LoxValue, RuntimeError, RuntimeEvent, Stringifyable},
     stmt::Stmt,
     token::Token,
 };
@@ -33,16 +33,16 @@ impl LoxCallable {
         arguments: Vec<Rc<LoxValue>>,
         call_token: &Token,
         environment: Rc<RefCell<Environment>>,
-    ) -> Result<Rc<LoxValue>, RuntimeError> {
+    ) -> Result<Rc<LoxValue>, RuntimeEvent> {
         if self.arity() != arguments.len() {
-            return Err(RuntimeError::new(
+            return Err(RuntimeEvent::Error(RuntimeError::new(
                 call_token.to_owned(),
                 format!(
                     "Expected {} arguments but got {}.",
                     self.arity(),
                     arguments.len()
                 ),
-            ));
+            )));
         }
 
         match self {
@@ -66,11 +66,17 @@ impl LoxCallable {
                     );
                 }
 
-                declaration
+                let result = declaration
                     .body
-                    .evaluate(Rc::new(RefCell::new(function_env)))?;
+                    .evaluate(Rc::new(RefCell::new(function_env)));
 
-                Ok(Rc::new(LoxValue::Nil))
+                match result {
+                    Ok(_) => Ok(Rc::new(LoxValue::Nil)),
+                    Err(err) => match err {
+                        RuntimeEvent::Return(value) => Ok(value),
+                        other => Err(other),
+                    },
+                }
             }
         }
     }

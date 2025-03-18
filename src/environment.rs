@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    interpreter::{LoxValue, RuntimeError},
+    interpreter::{LoxValue, RuntimeError, RuntimeEvent},
     token::Token,
 };
 
@@ -29,7 +29,7 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: &Token) -> Result<Rc<LoxValue>, RuntimeError> {
+    pub fn get(&self, name: &Token) -> Result<Rc<LoxValue>, RuntimeEvent> {
         if self.values.contains_key(&name.lexeme) {
             return Ok(self
                 .values
@@ -44,13 +44,13 @@ impl Environment {
             return enclosing.borrow().get(name);
         }
 
-        Err(RuntimeError {
+        Err(RuntimeEvent::Error(RuntimeError {
             token: name.clone(),
             message: format!("Undefined variable '{}'.", name.lexeme),
-        })
+        }))
     }
 
-    pub fn assign(&mut self, name: &Token, value: Rc<LoxValue>) -> Result<(), RuntimeError> {
+    pub fn assign(&mut self, name: &Token, value: Rc<LoxValue>) -> Result<(), RuntimeEvent> {
         if self.values.contains_key(&name.lexeme) {
             *self
                 .values
@@ -63,9 +63,9 @@ impl Environment {
             return enclosing.borrow_mut().assign(name, value);
         }
 
-        Err(RuntimeError {
+        Err(RuntimeEvent::Error(RuntimeError {
             token: name.clone(),
             message: format!("Undefined variable '{}'.", name.lexeme),
-        })
+        }))
     }
 }
