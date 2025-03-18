@@ -2,16 +2,22 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{error, expr::Expr, stmt::Stmt, token::Token};
 
+#[derive(PartialEq)]
+enum FunctionType {
+    None,
+    Function,
+}
+
 pub struct Resolver {
     scopes: Vec<HashMap<String, bool>>,
-    locals: HashMap<Rc<Expr>, usize>,
+    current_function: FunctionType,
 }
 
 impl Resolver {
     pub fn new() -> Resolver {
         Resolver {
             scopes: vec![],
-            locals: HashMap::new(),
+            current_function: FunctionType::None,
         }
     }
 
@@ -46,6 +52,10 @@ impl Resolver {
 
         let scope = self.peek_mut();
 
+        if scope.contains_key(&name.lexeme) {
+            error::error_token(name, "Already a variable with this name in this scope.");
+        }
+
         scope.insert(name.lexeme.to_owned(), false);
     }
 
@@ -66,7 +76,14 @@ impl Resolver {
         None
     }
 
-    fn resolve_function(&mut self, params: &[Token], body: &Rc<RefCell<Vec<Stmt>>>) {
+    fn resolve_function(
+        &mut self,
+        params: &[Token],
+        body: &Rc<RefCell<Vec<Stmt>>>,
+        function_type: FunctionType,
+    ) {
+        let enclosing_function = std::mem::replace(&mut self.current_function, function_type);
+
         self.begin_scope();
         for param in params {
             self.declare(param);
@@ -74,6 +91,8 @@ impl Resolver {
         }
         body.borrow_mut().resolve(self);
         self.end_scope();
+
+        self.current_function = enclosing_function;
     }
 }
 
@@ -102,7 +121,7 @@ impl Resolvable<()> for &mut Stmt {
                 resolver.define(name);
 
                 // resolveFunction
-                resolver.resolve_function(params, body);
+                resolver.resolve_function(params, body, FunctionType::Function);
             }
             Stmt::Expression { expr } => {
                 expr.resolve(resolver);
@@ -121,7 +140,11 @@ impl Resolvable<()> for &mut Stmt {
             Stmt::Print { expr } => {
                 expr.resolve(resolver);
             }
-            Stmt::Return { keyword: _, value } => {
+            Stmt::Return { keyword, value } => {
+                if resolver.current_function == FunctionType::None {
+                    error::error_token(keyword, "Can't return from top-level code.");
+                }
+
                 if let Some(value) = value {
                     value.resolve(resolver);
                 }

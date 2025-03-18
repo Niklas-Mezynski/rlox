@@ -2,6 +2,7 @@ use std::{env, io::Write};
 
 use interpreter::Interpreter;
 use parser::Parser;
+use resolver::{Resolvable, Resolver};
 use scanner::Scanner;
 
 mod ast_printer;
@@ -71,10 +72,20 @@ fn run(source: String, interpreter: &mut Interpreter) {
     let tokens = Scanner::new(source).scan_tokens();
     let expr = Parser::new(tokens).parse();
 
+    // Check if we had error during parsing
     if error::had_error() {
         return;
     }
 
-    let statements = expr.expect("Should have expression as there was no error reported");
+    let mut statements = expr.expect("Should have expression as there was no error reported");
+
+    let mut resolver = Resolver::new();
+    statements.resolve(&mut resolver);
+
+    // Check again after resolution
+    if error::had_error() {
+        return;
+    }
+
     interpreter.interpret(statements);
 }
