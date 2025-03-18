@@ -19,6 +19,15 @@ ifStmt         → "if" "(" expression ")" statement
 
 block          → "{" declaration* "}" ;
 
+declaration    → funDecl
+               | varDecl
+               | statement ;
+
+funDecl        → "fun" function ;
+function       → IDENTIFIER "(" parameters? ")" block ;
+
+parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+
 exprStmt       → expression ";" ;
 printStmt      → "print" expression ";" ;
 

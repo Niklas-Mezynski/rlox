@@ -4,13 +4,13 @@ use crate::{
     environment::Environment,
     error,
     expr::Expr,
-    lox_callable::LoxCallable,
+    lox_callable::{FunctionStmt, LoxCallable},
     stmt::Stmt,
     token::{Literal, Token},
     token_type::TokenType,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum LoxValue {
     String(String),
     Number(f64),
@@ -55,6 +55,18 @@ impl LoxValue {
     }
 }
 
+impl PartialEq for LoxValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::Boolean(l0), Self::Boolean(r0)) => l0 == r0,
+            // TODO: How should this behave for functions etc.
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
 impl Stringifyable for LoxValue {
     fn stringify(&self) -> String {
         match self {
@@ -95,7 +107,7 @@ impl Interpreter {
     }
 }
 
-trait Evaluatable<T> {
+pub trait Evaluatable<T> {
     fn evaluate(&self, environment: Rc<RefCell<Environment>>) -> Result<T, RuntimeError>;
 }
 
@@ -146,6 +158,11 @@ impl Evaluatable<()> for Stmt {
                 }
 
                 Ok(())
+            }
+            Stmt::Function { name, params, body } => {
+                // let function = LoxValue::Callable(LoxCallable::Function(FunctionStmt { name, params, body }))
+
+                todo!()
             }
         }
     }
@@ -372,7 +389,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     }
                 };
 
-                function.call(evaluated_args, closing_paren)
+                function.call(evaluated_args, closing_paren, environment)
             }
         }
     }

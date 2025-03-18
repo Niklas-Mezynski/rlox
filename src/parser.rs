@@ -62,10 +62,54 @@ impl Parser {
     }
 
     fn declaration_impl(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(TokenType::Fun).is_some() {
+            return self.function("function");
+        }
         if self.match_token(TokenType::Var).is_some() {
             return self.var_declaration();
         }
         self.statement()
+    }
+
+    fn function(&mut self, kind: &str) -> Result<Stmt, ParseError> {
+        let name = self.consume(
+            TokenType::Identifier,
+            format!("Expected {} name", kind).as_str(),
+        )?;
+        self.consume(
+            TokenType::LeftParen,
+            format!("Expect '(' after {} name.", kind).as_str(),
+        )?;
+
+        let mut parameters = vec![];
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    let _ = error::<Expr>(self.peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.push(self.consume(TokenType::Identifier, "Expect parameter name.")?);
+
+                if self.match_token(TokenType::Comma).is_none() {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
+
+        self.consume(
+            TokenType::LeftBrace,
+            format!("Expect '{{' before {} body.", kind).as_str(),
+        )?;
+
+        let body = self.block()?;
+
+        Ok(Stmt::Function {
+            name,
+            params: parameters,
+            body,
+        })
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, ParseError> {

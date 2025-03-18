@@ -8,6 +8,11 @@ pub enum Stmt {
     Expression {
         expr: Expr,
     },
+    Function {
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
+    },
     If {
         condition: Expr,
         then_branch: Box<Stmt>,
