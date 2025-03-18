@@ -180,11 +180,14 @@ impl Evaluatable<()> for Stmt {
                 Ok(())
             }
             Stmt::Function { name, params, body } => {
-                let function = LoxValue::Callable(LoxCallable::Function(FunctionStmt {
-                    name: name.clone(),
-                    params: params.clone(),
-                    body: body.clone(),
-                }));
+                let function = LoxValue::Callable(LoxCallable::new_function(
+                    FunctionStmt {
+                        name: name.clone(),
+                        params: params.clone(),
+                        body: body.clone(),
+                    },
+                    environment.clone(),
+                ));
 
                 environment
                     .borrow_mut()
@@ -421,7 +424,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     }
                 };
 
-                function.call(evaluated_args, closing_paren, environment)
+                function.call(evaluated_args, closing_paren)
             }
         }
     }

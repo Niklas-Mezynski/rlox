@@ -5,6 +5,7 @@ use crate::{
     token::Token,
 };
 
+#[derive(Debug)]
 pub struct Environment {
     values: HashMap<String, Rc<LoxValue>>,
     enclosing: Option<Rc<RefCell<Environment>>>,

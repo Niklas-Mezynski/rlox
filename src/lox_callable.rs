@@ -17,14 +17,30 @@ pub struct FunctionStmt {
 #[derive(Debug)]
 pub enum LoxCallable {
     ClockFunction,
-    Function(FunctionStmt),
+    Function {
+        declaration: FunctionStmt,
+        closure: Rc<RefCell<Environment>>,
+    },
 }
 
 impl LoxCallable {
+    pub fn new_function(
+        declaration: FunctionStmt,
+        closure: Rc<RefCell<Environment>>,
+    ) -> LoxCallable {
+        LoxCallable::Function {
+            declaration,
+            closure,
+        }
+    }
+
     fn arity(&self) -> usize {
         match self {
             LoxCallable::ClockFunction => 0,
-            LoxCallable::Function(declaration) => declaration.params.len(),
+            LoxCallable::Function {
+                declaration,
+                closure: _,
+            } => declaration.params.len(),
         }
     }
 
@@ -32,7 +48,6 @@ impl LoxCallable {
         &self,
         arguments: Vec<Rc<LoxValue>>,
         call_token: &Token,
-        environment: Rc<RefCell<Environment>>,
     ) -> Result<Rc<LoxValue>, RuntimeEvent> {
         if self.arity() != arguments.len() {
             return Err(RuntimeEvent::Error(RuntimeError::new(
@@ -53,8 +68,11 @@ impl LoxCallable {
                     .expect("Time went backwards");
                 Ok(Rc::new(LoxValue::Number(duration.as_secs_f64())))
             }
-            LoxCallable::Function(declaration) => {
-                let mut function_env = Environment::new_enclosing(environment);
+            LoxCallable::Function {
+                declaration,
+                closure,
+            } => {
+                let mut function_env = Environment::new_enclosing(closure.clone());
                 let mut arguments = VecDeque::from(arguments);
 
                 for param in declaration.params.iter() {
@@ -86,7 +104,10 @@ impl Stringifyable for LoxCallable {
     fn stringify(&self) -> String {
         match self {
             LoxCallable::ClockFunction => "<native fn>".to_string(),
-            LoxCallable::Function(declaration) => format!("<fn {}>", declaration.name.lexeme),
+            LoxCallable::Function {
+                declaration,
+                closure: _,
+            } => format!("<fn {}>", declaration.name.lexeme),
         }
     }
 }
