@@ -24,10 +24,12 @@ pub enum Expr {
     },
     Variable {
         name: Token,
+        depth: Option<usize>,
     },
     Assign {
         name: Token,
         value: Box<Expr>,
+        depth: Option<usize>,
     },
     Conditional {
         condition: Box<Expr>,

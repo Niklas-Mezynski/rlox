@@ -355,8 +355,12 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     ))),
                 }
             }
-            Expr::Variable { name } => environment.borrow().get(name),
-            Expr::Assign { name, value } => {
+            Expr::Variable { name, depth: _ } => environment.borrow().get(name),
+            Expr::Assign {
+                name,
+                value,
+                depth: _,
+            } => {
                 let value = value.evaluate(environment.clone())?;
                 environment.borrow_mut().assign(name, value.clone())?;
                 Ok(value)

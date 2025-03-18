@@ -11,6 +11,7 @@ mod expr;
 mod interpreter;
 mod lox_callable;
 mod parser;
+mod resolver;
 mod scanner;
 mod stmt;
 mod token;

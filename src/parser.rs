@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 use crate::{
     error,
@@ -108,7 +108,7 @@ impl Parser {
         Ok(Stmt::Function {
             name: Rc::new(name),
             params: Rc::new(parameters),
-            body: Rc::new(body),
+            body: Rc::new(RefCell::new(body)),
         })
     }
 
@@ -287,10 +287,11 @@ impl Parser {
             let value = self.assignment()?;
 
             match expr {
-                Expr::Variable { name } => {
+                Expr::Variable { name, depth: None } => {
                     return Ok(Expr::Assign {
                         name,
                         value: Box::new(value),
+                        depth: None,
                     })
                 }
                 _ => return error(&equals, "Invalid assignment target."),
@@ -493,7 +494,10 @@ impl Parser {
         }
 
         if let Some(token) = self.match_token(TokenType::Identifier) {
-            return Ok(Expr::Variable { name: token });
+            return Ok(Expr::Variable {
+                name: token,
+                depth: None,
+            });
         }
 
         if self.match_token(TokenType::LeftParen).is_some() {

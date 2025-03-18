@@ -11,7 +11,7 @@ use crate::{
 pub struct FunctionStmt {
     pub name: Rc<Token>,
     pub params: Rc<Vec<Token>>,
-    pub body: Rc<Vec<Stmt>>,
+    pub body: Rc<RefCell<Vec<Stmt>>>,
 }
 
 #[derive(Debug)]
@@ -86,6 +86,7 @@ impl LoxCallable {
 
                 let result = declaration
                     .body
+                    .borrow()
                     .evaluate(Rc::new(RefCell::new(function_env)));
 
                 match result {

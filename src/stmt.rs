@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{expr::Expr, token::Token};
 
@@ -13,7 +13,7 @@ pub enum Stmt {
     Function {
         name: Rc<Token>,
         params: Rc<Vec<Token>>,
-        body: Rc<Vec<Stmt>>,
+        body: Rc<RefCell<Vec<Stmt>>>,
     },
     If {
         condition: Expr,
