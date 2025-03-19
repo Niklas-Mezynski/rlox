@@ -213,9 +213,52 @@ impl Evaluatable<()> for Stmt {
 
                 Err(RuntimeEvent::Return(value))
             }
-            Stmt::Class { name, methods } => {
-                let mut env_mut = environment.borrow_mut();
-                env_mut.define(name.lexeme.to_string(), Rc::new(LoxValue::Nil));
+            Stmt::Class {
+                name,
+                superclass,
+                methods,
+            } => {
+                let superclass = if let Some(superclass_expr) = superclass {
+                    let superclass_value = superclass_expr.evaluate(environment.clone())?;
+
+                    if !matches!(
+                        superclass_value.as_ref(),
+                        LoxValue::Callable(LoxCallable::Class { .. })
+                    ) {
+                        let error_token = match superclass_expr {
+                            Expr::Variable { name, .. } => name.clone(),
+                            _ => unreachable!(),
+                        };
+
+                        return Err(RuntimeEvent::Error(RuntimeError::new(
+                            error_token,
+                            "Superclass must be a class.".to_string(),
+                        )));
+                    }
+
+                    Some(superclass_value)
+                } else {
+                    None
+                };
+
+                {
+                    // Bind the own classname (in the beginning this is Nil, as class is not fully initialized)
+                    let mut env_mut = environment.borrow_mut();
+                    env_mut.define(name.lexeme.to_string(), Rc::new(LoxValue::Nil));
+                }
+
+                let mut parent_environment = None;
+
+                let mut environment = if let Some(superclass) = &superclass {
+                    parent_environment = Some(environment.clone());
+                    let super_env = Rc::new(RefCell::new(Environment::new_enclosing(environment)));
+                    super_env
+                        .borrow_mut()
+                        .define("super".to_string(), superclass.clone());
+                    super_env
+                } else {
+                    environment
+                };
 
                 let method_map: HashMap<String, Rc<LoxValue>> = methods
                     .iter()
@@ -228,7 +271,8 @@ impl Evaluatable<()> for Stmt {
                                     params: params.clone(),
                                     body: body.clone(),
                                 }),
-                                environment.clone(), // TODO: Pass the correct closure here
+                                // This is either the current environment, or the one which is bound with "super"
+                                environment.clone(),
                                 name.lexeme == "init",
                             ))),
                         ),
@@ -237,9 +281,18 @@ impl Evaluatable<()> for Stmt {
                     .collect();
 
                 let class = LoxValue::Callable(LoxCallable::Class {
-                    class: Rc::new(LoxClass::new(name.lexeme.to_string(), method_map)),
+                    class: Rc::new(LoxClass::new(
+                        name.lexeme.to_string(),
+                        superclass,
+                        method_map,
+                    )),
                 });
-                env_mut.assign(name, Rc::new(class))?;
+
+                if let Some(old_environment) = parent_environment {
+                    environment = old_environment;
+                }
+
+                environment.borrow_mut().assign(name, Rc::new(class))?;
 
                 Ok(())
             }
@@ -501,6 +554,38 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 }
             }
             Expr::This { keyword, depth } => environment.borrow().get_at(Some(*depth), keyword),
+            Expr::Super {
+                keyword,
+                method,
+                depth,
+            } => {
+                // First get the superclass value and extend its lifetime
+                let superclass_value = environment.borrow().get_at(Some(*depth), keyword)?;
+                let superclass = match superclass_value.as_ref() {
+                    LoxValue::Callable(LoxCallable::Class { class }) => class,
+                    _ => panic!("Superclass must be LoxClass"),
+                };
+
+                let this_value = environment.borrow().get_at(
+                    Some(*depth - 1),
+                    &Token::new(TokenType::This, "this".to_string(), keyword.line),
+                )?;
+
+                let object = match this_value.as_ref() {
+                    LoxValue::Instance(instance) => instance,
+                    _ => panic!("'this' while evaluating super, must be LoxInstance"),
+                };
+
+                let method_value = superclass.find_method(&method.lexeme);
+
+                match method_value {
+                    Some(method) => Ok(method.bind(object.clone())),
+                    None => Err(RuntimeEvent::Error(RuntimeError::new(
+                        method.to_owned(),
+                        format!("Undefined property '{}'.", method.lexeme),
+                    ))),
+                }
+            }
         }
     }
 }

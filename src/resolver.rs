@@ -167,12 +167,40 @@ impl Resolvable<()> for &mut Stmt {
                 condition.resolve(resolver);
                 body.resolve(resolver);
             }
-            Stmt::Class { name, methods } => {
+            Stmt::Class {
+                name,
+                superclass,
+                methods,
+            } => {
                 let enclosing_class =
                     std::mem::replace(&mut resolver.current_class, ClassType::Class);
 
                 resolver.declare(name);
                 resolver.define(name);
+
+                if let Some(superclass) = superclass {
+                    match superclass {
+                        Expr::Variable {
+                            name: superclass_name,
+                            depth: _,
+                        } => {
+                            if superclass_name.lexeme == name.lexeme {
+                                error::error_token(
+                                    superclass_name,
+                                    "A class can't inherit from itself.",
+                                );
+                            }
+                        }
+                        _ => unreachable!("Superclass Expression should always be a variable"),
+                    }
+
+                    superclass.resolve(resolver);
+                }
+
+                if superclass.is_some() {
+                    resolver.begin_scope();
+                    resolver.peek_mut().insert("super".to_string(), true);
+                }
 
                 resolver.begin_scope();
                 resolver.peek_mut().insert("this".to_string(), true);
@@ -191,6 +219,11 @@ impl Resolvable<()> for &mut Stmt {
                 }
 
                 resolver.end_scope();
+
+                if superclass.is_some() {
+                    resolver.end_scope();
+                }
+
                 resolver.current_class = enclosing_class;
             }
         }
@@ -281,6 +314,13 @@ impl Resolvable<()> for &mut Expr {
                 *depth = resolver
                     .resolve_local(keyword)
                     .expect("This must exist as it can only be used in classes");
+            }
+            Expr::Super {
+                keyword,
+                method: _,
+                depth,
+            } => {
+                *depth = resolver.resolve_local(keyword).expect("Super must exist");
             }
         }
     }

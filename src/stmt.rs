@@ -9,6 +9,7 @@ pub enum Stmt {
     },
     Class {
         name: Token,
+        superclass: Option<Expr>,
         methods: Vec<Stmt>, // Where statements must be functions
     },
     Expression {
