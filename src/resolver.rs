@@ -14,6 +14,7 @@ enum FunctionType {
 enum ClassType {
     None,
     Class,
+    Subclass,
 }
 
 pub struct Resolver {
@@ -194,6 +195,8 @@ impl Resolvable<()> for &mut Stmt {
                         _ => unreachable!("Superclass Expression should always be a variable"),
                     }
 
+                    resolver.current_class = ClassType::Subclass;
+
                     superclass.resolve(resolver);
                 }
 
@@ -320,7 +323,21 @@ impl Resolvable<()> for &mut Expr {
                 method: _,
                 depth,
             } => {
-                *depth = resolver.resolve_local(keyword).expect("Super must exist");
+                match resolver.current_class {
+                    ClassType::None => {
+                        error::error_token(keyword, "Can't use 'super' outside of a class.");
+                    }
+                    ClassType::Class => {
+                        error::error_token(
+                            keyword,
+                            "Can't use 'super' in a class with no superclass.",
+                        );
+                    }
+                    // All good
+                    ClassType::Subclass => {
+                        *depth = resolver.resolve_local(keyword).expect("Super must exist");
+                    }
+                }
             }
         }
     }
