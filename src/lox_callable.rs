@@ -39,14 +39,14 @@ impl LoxCallable {
         }
     }
 
-    fn arity(&self) -> usize {
+    pub fn arity(&self) -> usize {
         match self {
             LoxCallable::ClockFunction => 0,
             LoxCallable::Function {
                 declaration,
                 closure: _,
             } => declaration.params.len(),
-            LoxCallable::Class { class: _ } => 0,
+            LoxCallable::Class { class } => class.arity(),
         }
     }
 
@@ -104,7 +104,18 @@ impl LoxCallable {
             }
             LoxCallable::Class { class } => {
                 let instance = LoxInstance::new(class.clone());
-                Ok(Rc::new(LoxValue::Instance(Rc::new(RefCell::new(instance)))))
+                let instance = Rc::new(RefCell::new(instance));
+
+                if let Some(initializer) = class.find_method("init") {
+                    match initializer.bind(instance.clone()).as_ref() {
+                        LoxValue::Callable(callable) => {
+                            let _ = callable.call(arguments, call_token);
+                        }
+                        _ => unreachable!("Bind always returns a callable"),
+                    };
+                }
+
+                Ok(Rc::new(LoxValue::Instance(instance)))
             }
         }
     }

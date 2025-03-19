@@ -1,0 +1,7 @@
+class Foo {
+  init() {
+    print this + " initialized.";
+  }
+}
+
+var foo = Foo();

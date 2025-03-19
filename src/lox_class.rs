@@ -16,4 +16,14 @@ impl LoxClass {
     pub fn find_method(&self, name: &str) -> Option<Rc<LoxValue>> {
         self.methods.get(name).map(Rc::clone)
     }
+
+    pub fn arity(&self) -> usize {
+        match self.find_method("init") {
+            Some(initializer) => match initializer.as_ref() {
+                LoxValue::Callable(callable) => callable.arity(),
+                _ => unreachable!("All class methods must be functions"),
+            },
+            None => 0,
+        }
+    }
 }

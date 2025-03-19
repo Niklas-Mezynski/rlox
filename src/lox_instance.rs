@@ -55,7 +55,7 @@ impl LoxInstance {
 }
 
 impl LoxValue {
-    fn bind(&self, instance: Rc<RefCell<LoxInstance>>) -> Rc<LoxValue> {
+    pub fn bind(&self, instance: Rc<RefCell<LoxInstance>>) -> Rc<LoxValue> {
         match self {
             LoxValue::Callable(callable) => match callable {
                 LoxCallable::Function {
@@ -64,10 +64,10 @@ impl LoxValue {
                 } => {
                     let mut environment = Environment::new_enclosing(closure.clone());
                     environment.define("this".to_string(), Rc::new(LoxValue::Instance(instance)));
-                    return Rc::new(LoxValue::Callable(LoxCallable::new_function(
+                    Rc::new(LoxValue::Callable(LoxCallable::new_function(
                         declaration.clone(),
                         Rc::new(RefCell::new(environment)),
-                    )));
+                    )))
                 }
                 _ => todo!(),
             },
