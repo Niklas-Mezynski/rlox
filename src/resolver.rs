@@ -6,6 +6,7 @@ use crate::{error, expr::Expr, stmt::Stmt, token::Token};
 enum FunctionType {
     None,
     Function,
+    Initializer,
     Method,
 }
 
@@ -155,6 +156,10 @@ impl Resolvable<()> for &mut Stmt {
                 }
 
                 if let Some(value) = value {
+                    if resolver.current_function == FunctionType::Initializer {
+                        error::error_token(keyword, "Can't return a value from an initializer.");
+                    }
+
                     value.resolve(resolver);
                 }
             }
@@ -174,12 +179,12 @@ impl Resolvable<()> for &mut Stmt {
 
                 for method in methods {
                     match method {
-                        Stmt::Function {
-                            name: _,
-                            params,
-                            body,
-                        } => {
-                            resolver.resolve_function(params, body, FunctionType::Method);
+                        Stmt::Function { name, params, body } => {
+                            let function_type = match name.lexeme.as_str() {
+                                "init" => FunctionType::Initializer,
+                                _ => FunctionType::Method,
+                            };
+                            resolver.resolve_function(params, body, function_type);
                         }
                         _ => panic!("Class can only contain methods."),
                     }

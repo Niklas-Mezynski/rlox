@@ -196,6 +196,7 @@ impl Evaluatable<()> for Stmt {
                         body: body.clone(),
                     }),
                     environment.clone(),
+                    false,
                 ));
 
                 environment
@@ -221,14 +222,15 @@ impl Evaluatable<()> for Stmt {
                     .map(|method| match method {
                         Stmt::Function { name, params, body } => (
                             name.lexeme.to_string(),
-                            Rc::new(LoxValue::Callable(LoxCallable::Function {
-                                declaration: Rc::new(FunctionStmt {
+                            Rc::new(LoxValue::Callable(LoxCallable::new_function(
+                                Rc::new(FunctionStmt {
                                     name: name.clone(),
                                     params: params.clone(),
                                     body: body.clone(),
                                 }),
-                                closure: environment.clone(), // TODO: Pass the correct closure here
-                            })),
+                                environment.clone(), // TODO: Pass the correct closure here
+                                name.lexeme == "init",
+                            ))),
                         ),
                         _ => panic!("Class can only contain methods."),
                     })

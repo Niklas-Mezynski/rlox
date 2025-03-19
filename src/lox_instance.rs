@@ -61,12 +61,14 @@ impl LoxValue {
                 LoxCallable::Function {
                     declaration,
                     closure,
+                    is_initializer,
                 } => {
                     let mut environment = Environment::new_enclosing(closure.clone());
                     environment.define("this".to_string(), Rc::new(LoxValue::Instance(instance)));
                     Rc::new(LoxValue::Callable(LoxCallable::new_function(
                         declaration.clone(),
                         Rc::new(RefCell::new(environment)),
+                        *is_initializer,
                     )))
                 }
                 _ => todo!(),

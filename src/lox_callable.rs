@@ -7,6 +7,7 @@ use crate::{
     lox_instance::LoxInstance,
     stmt::Stmt,
     token::Token,
+    token_type::TokenType,
 };
 
 #[derive(Debug)]
@@ -22,6 +23,7 @@ pub enum LoxCallable {
     Function {
         declaration: Rc<FunctionStmt>,
         closure: Rc<RefCell<Environment>>,
+        is_initializer: bool,
     },
     Class {
         class: Rc<LoxClass>,
@@ -32,10 +34,12 @@ impl LoxCallable {
     pub fn new_function(
         declaration: Rc<FunctionStmt>,
         closure: Rc<RefCell<Environment>>,
+        is_initializer: bool,
     ) -> LoxCallable {
         LoxCallable::Function {
             declaration,
             closure,
+            is_initializer,
         }
     }
 
@@ -45,6 +49,7 @@ impl LoxCallable {
             LoxCallable::Function {
                 declaration,
                 closure: _,
+                is_initializer: _,
             } => declaration.params.len(),
             LoxCallable::Class { class } => class.arity(),
         }
@@ -77,6 +82,7 @@ impl LoxCallable {
             LoxCallable::Function {
                 declaration,
                 closure,
+                is_initializer,
             } => {
                 let mut function_env = Environment::new_enclosing(closure.clone());
 
@@ -95,9 +101,29 @@ impl LoxCallable {
                     .evaluate(Rc::new(RefCell::new(function_env)));
 
                 match result {
-                    Ok(_) => Ok(Rc::new(LoxValue::Nil)),
+                    Ok(_) => match is_initializer {
+                        // init() methods should always return this
+                        true => closure.borrow().get_at(
+                            Some(0),
+                            &Token::new(TokenType::This, "this".to_string(), call_token.line),
+                        ),
+                        false => Ok(Rc::new(LoxValue::Nil)),
+                    },
                     Err(err) => match err {
-                        RuntimeEvent::Return(value) => Ok(value),
+                        RuntimeEvent::Return(value) => {
+                            match is_initializer {
+                                // Handle case where have an early return in an initializer function
+                                true => closure.borrow().get_at(
+                                    Some(0),
+                                    &Token::new(
+                                        TokenType::This,
+                                        "this".to_string(),
+                                        call_token.line,
+                                    ),
+                                ),
+                                false => Ok(value),
+                            }
+                        }
                         other => Err(other),
                     },
                 }
@@ -107,9 +133,11 @@ impl LoxCallable {
                 let instance = Rc::new(RefCell::new(instance));
 
                 if let Some(initializer) = class.find_method("init") {
+                    // First bind the init method to the instance (so it has access to `this`)
                     match initializer.bind(instance.clone()).as_ref() {
                         LoxValue::Callable(callable) => {
-                            let _ = callable.call(arguments, call_token);
+                            // And then invoke it
+                            callable.call(arguments, call_token)?;
                         }
                         _ => unreachable!("Bind always returns a callable"),
                     };
@@ -128,6 +156,7 @@ impl Stringifyable for LoxCallable {
             LoxCallable::Function {
                 declaration,
                 closure: _,
+                is_initializer: _,
             } => format!("<fn {}>", declaration.name.lexeme),
             LoxCallable::Class { class } => class.name.to_string(),
         }
