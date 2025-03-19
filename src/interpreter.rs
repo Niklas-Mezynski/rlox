@@ -1,11 +1,17 @@
-use std::{cell::RefCell, collections::VecDeque, fmt::Debug, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, VecDeque},
+    fmt::Debug,
+    rc::Rc,
+};
 
 use crate::{
     environment::Environment,
     error,
     expr::Expr,
-    lox_callable::{FunctionStmt, LoxCallable, LoxClass},
-    lox_instance::{self, LoxInstance},
+    lox_callable::{FunctionStmt, LoxCallable},
+    lox_class::LoxClass,
+    lox_instance::LoxInstance,
     stmt::Stmt,
     token::{Literal, Token},
     token_type::TokenType,
@@ -18,7 +24,7 @@ pub enum LoxValue {
     Nil,
     Boolean(bool),
     Callable(LoxCallable),
-    Instance(RefCell<LoxInstance>),
+    Instance(Rc<RefCell<LoxInstance>>),
 }
 
 pub struct RuntimeError {
@@ -184,11 +190,11 @@ impl Evaluatable<()> for Stmt {
             }
             Stmt::Function { name, params, body } => {
                 let function = LoxValue::Callable(LoxCallable::new_function(
-                    FunctionStmt {
+                    Rc::new(FunctionStmt {
                         name: name.clone(),
                         params: params.clone(),
                         body: body.clone(),
-                    },
+                    }),
                     environment.clone(),
                 ));
 
@@ -209,10 +215,27 @@ impl Evaluatable<()> for Stmt {
             Stmt::Class { name, methods } => {
                 let mut env_mut = environment.borrow_mut();
                 env_mut.define(name.lexeme.to_string(), Rc::new(LoxValue::Nil));
+
+                let method_map: HashMap<String, Rc<LoxValue>> = methods
+                    .iter()
+                    .map(|method| match method {
+                        Stmt::Function { name, params, body } => (
+                            name.lexeme.to_string(),
+                            Rc::new(LoxValue::Callable(LoxCallable::Function {
+                                declaration: Rc::new(FunctionStmt {
+                                    name: name.clone(),
+                                    params: params.clone(),
+                                    body: body.clone(),
+                                }),
+                                closure: environment.clone(), // TODO: Pass the correct closure here
+                            })),
+                        ),
+                        _ => panic!("Class can only contain methods."),
+                    })
+                    .collect();
+
                 let class = LoxValue::Callable(LoxCallable::Class {
-                    class: Rc::new(LoxClass {
-                        name: name.lexeme.to_string(),
-                    }),
+                    class: Rc::new(LoxClass::new(name.lexeme.to_string(), method_map)),
                 });
                 env_mut.assign(name, Rc::new(class))?;
 
@@ -447,7 +470,9 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                 let object = object.evaluate(environment)?;
 
                 match object.as_ref() {
-                    LoxValue::Instance(lox_instance) => lox_instance.borrow().get(name),
+                    LoxValue::Instance(lox_instance) => {
+                        LoxInstance::get(lox_instance.clone(), name)
+                    }
                     _ => Err(RuntimeEvent::Error(RuntimeError::new(
                         name.to_owned(),
                         "Only instances have properties.".to_string(),
@@ -473,6 +498,7 @@ impl Evaluatable<Rc<LoxValue>> for Expr {
                     ))),
                 }
             }
+            Expr::This { keyword, depth } => environment.borrow().get_at(Some(*depth), keyword),
         }
     }
 }

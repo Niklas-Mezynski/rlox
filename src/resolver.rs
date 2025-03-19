@@ -6,11 +6,19 @@ use crate::{error, expr::Expr, stmt::Stmt, token::Token};
 enum FunctionType {
     None,
     Function,
+    Method,
+}
+
+#[derive(PartialEq)]
+enum ClassType {
+    None,
+    Class,
 }
 
 pub struct Resolver {
     scopes: Vec<HashMap<String, bool>>,
     current_function: FunctionType,
+    current_class: ClassType,
 }
 
 impl Resolver {
@@ -18,6 +26,7 @@ impl Resolver {
         Resolver {
             scopes: vec![],
             current_function: FunctionType::None,
+            current_class: ClassType::None,
         }
     }
 
@@ -154,9 +163,30 @@ impl Resolvable<()> for &mut Stmt {
                 body.resolve(resolver);
             }
             Stmt::Class { name, methods } => {
+                let enclosing_class =
+                    std::mem::replace(&mut resolver.current_class, ClassType::Class);
+
                 resolver.declare(name);
                 resolver.define(name);
-                // TODO: resolve methods
+
+                resolver.begin_scope();
+                resolver.peek_mut().insert("this".to_string(), true);
+
+                for method in methods {
+                    match method {
+                        Stmt::Function {
+                            name: _,
+                            params,
+                            body,
+                        } => {
+                            resolver.resolve_function(params, body, FunctionType::Method);
+                        }
+                        _ => panic!("Class can only contain methods."),
+                    }
+                }
+
+                resolver.end_scope();
+                resolver.current_class = enclosing_class;
             }
         }
     }
@@ -236,6 +266,16 @@ impl Resolvable<()> for &mut Expr {
             } => {
                 value.resolve(resolver);
                 object.resolve(resolver);
+            }
+            Expr::This { keyword, depth } => {
+                if resolver.current_class == ClassType::None {
+                    error::error_token(keyword, "Can't use 'this' outside of a class.");
+                    return;
+                }
+
+                *depth = resolver
+                    .resolve_local(keyword)
+                    .expect("This must exist as it can only be used in classes");
             }
         }
     }

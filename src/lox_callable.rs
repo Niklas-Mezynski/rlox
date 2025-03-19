@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::VecDeque, fmt::Debug, rc::Rc};
 use crate::{
     environment::Environment,
     interpreter::{Evaluatable, LoxValue, RuntimeError, RuntimeEvent, Stringifyable},
+    lox_class::LoxClass,
     lox_instance::LoxInstance,
     stmt::Stmt,
     token::Token,
@@ -16,15 +17,10 @@ pub struct FunctionStmt {
 }
 
 #[derive(Debug)]
-pub struct LoxClass {
-    pub name: String,
-}
-
-#[derive(Debug)]
 pub enum LoxCallable {
     ClockFunction,
     Function {
-        declaration: FunctionStmt,
+        declaration: Rc<FunctionStmt>,
         closure: Rc<RefCell<Environment>>,
     },
     Class {
@@ -34,7 +30,7 @@ pub enum LoxCallable {
 
 impl LoxCallable {
     pub fn new_function(
-        declaration: FunctionStmt,
+        declaration: Rc<FunctionStmt>,
         closure: Rc<RefCell<Environment>>,
     ) -> LoxCallable {
         LoxCallable::Function {
@@ -108,7 +104,7 @@ impl LoxCallable {
             }
             LoxCallable::Class { class } => {
                 let instance = LoxInstance::new(class.clone());
-                Ok(Rc::new(LoxValue::Instance(RefCell::new(instance))))
+                Ok(Rc::new(LoxValue::Instance(Rc::new(RefCell::new(instance)))))
             }
         }
     }

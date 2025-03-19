@@ -535,6 +535,13 @@ impl Parser {
             });
         }
 
+        if let Some(token) = self.match_token(TokenType::This) {
+            return Ok(Expr::This {
+                keyword: token,
+                depth: 0,
+            });
+        }
+
         if self.match_token(TokenType::LeftParen).is_some() {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
