@@ -93,7 +93,7 @@ impl MyPartialEq for Rc<LoxValue> {
 impl Stringifyable for LoxValue {
     fn stringify(&self) -> String {
         match self {
-            LoxValue::Nil => String::from("nul"),
+            LoxValue::Nil => String::from("nil"),
             LoxValue::Boolean(value) => value.to_string(),
             LoxValue::Number(value) => value.to_string(),
             LoxValue::String(value) => value.clone(),

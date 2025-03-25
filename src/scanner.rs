@@ -283,7 +283,8 @@ mod tests {
 
     #[test]
     fn test_with_lox_file() {
-        let source = std::fs::read_to_string("./test/lex.lox").expect("Failed to read file");
+        let source =
+            std::fs::read_to_string("./test-scripts/lex.lox").expect("Failed to read file");
 
         let tokens = Scanner::new(source).scan_tokens();
 
