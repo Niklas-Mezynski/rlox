@@ -20,6 +20,8 @@ mod stmt;
 mod token;
 mod token_type;
 
+const DEBUG_MEMORY: bool = false;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -28,12 +30,27 @@ fn main() {
         std::process::exit(1);
     }
 
-    let mut interpreter = Interpreter::new();
+    if DEBUG_MEMORY {
+        // Wait until user presses any button
+        println!("Press any key to start the program execution");
+        std::io::stdin().read_line(&mut String::new()).unwrap();
+    }
 
-    if args.len() == 2 {
-        run_file(&args[1], &mut interpreter);
-    } else {
-        run_prompt(&mut interpreter);
+    {
+        let mut interpreter = Interpreter::new();
+
+        if args.len() == 2 {
+            run_file(&args[1], &mut interpreter);
+        } else {
+            run_prompt(&mut interpreter);
+        }
+    }
+
+    if DEBUG_MEMORY {
+        println!("----------------");
+        println!("Program finished");
+        // Wait until user presses any button
+        std::io::stdin().read_line(&mut String::new()).unwrap();
     }
 }
 
